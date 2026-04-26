@@ -1,65 +1,79 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { RotateCcw } from "lucide-react";
+import { useState } from "react";
+
+import { LeaderboardPanel } from "@/components/game/LeaderboardPanel";
+import { PlayerProfileCard } from "@/components/game/PlayerProfileCard";
+import { CharacterCard } from "@/components/select/CharacterCard";
+import { getCharacters } from "@/lib/characters";
+import { storage } from "@/lib/storage";
+import type { PlayerProfile, SavedData } from "@/lib/types";
+
+const characters = getCharacters();
 
 export default function Home() {
+  const [saved, setSaved] = useState<SavedData | null>(() => storage.load());
+  const [profile, setProfile] = useState<PlayerProfile>(() => storage.getOrCreatePlayerProfile());
+  const allCompleted = storage.isAllCompleted(characters.map((character) => character.id));
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-[#f4f7fb] px-4 py-8 text-slate-900">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <section className="rounded-[2rem] bg-slate-900 px-6 py-8 text-white shadow-lg">
+          <p className="text-sm font-medium text-white/70">대화형 연애 시뮬레이션</p>
+          <h1 className="mt-2 text-3xl font-bold leading-tight">10턴 안에 썸의 흐름을 만들어보세요</h1>
+          <p className="mt-3 text-sm leading-6 text-white/80">
+            캐릭터마다 다른 취향과 분위기를 읽고, 자연스럽게 공략에 성공해 보세요.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href={allCompleted ? "/analysis" : `/chat/${characters[0]?.id ?? ""}`}
+              className="rounded-full bg-[#FEE500] px-5 py-3 text-sm font-semibold text-slate-900"
+            >
+              {allCompleted ? "🔍 대화 스타일 분석 보기" : "첫 캐릭터 시작하기"}
+            </Link>
+            <button
+              onClick={() => {
+                storage.reset();
+                setSaved(storage.load());
+                setProfile(storage.getOrCreatePlayerProfile());
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white"
+            >
+              <RotateCcw size={16} />
+              기록 초기화
+            </button>
+          </div>
+        </section>
+
+        <PlayerProfileCard
+          profile={profile}
+          onSave={(nickname) => {
+            const nextProfile = storage.updateNickname(nickname);
+            setProfile(nextProfile);
+            setSaved(storage.load());
+          }}
+        />
+
+        <section className="space-y-4">
+          {characters.map((character) => {
+            const progress = saved?.characters[character.id];
+            return (
+              <CharacterCard
+                key={character.id}
+                character={character}
+                completed={progress?.chatState?.isGameOver}
+                success={progress?.chatState?.isSuccess}
+              />
+            );
+          })}
+        </section>
+
+        <LeaderboardPanel />
+      </div>
+    </main>
   );
 }

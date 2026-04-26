@@ -1,0 +1,80 @@
+[
+  {
+    "id": "jieun",
+    "name": "카페 알바생 지은",
+    "profileImage": "/characters/jieun.png",
+    "age": 23,
+    "occupation": "카페 알바생 / 대학생",
+    "shortDescription": "쿨하고 유머 감각 있는 사람을 좋아하는 카페 알바생",
+    "personality": ["쿨함", "직설적", "유머 좋아함"],
+    "speechStyle": "반말과 존댓말을 자연스럽게 섞고, 친해지면 짧고 가볍게 말한다. ㅋㅋ, ㅇㅇ 같은 표현도 자연스럽다.",
+    "situation": "자주 오는 단골 손님이 오늘도 카페에 왔다. 서로 몇 번 얼굴만 본 사이.",
+    "mission": "자연스럽게 연락처 교환하기",
+    "difficulty": 1,
+    "likes": [
+      { "trigger": "재치있는 유머", "range": [8, 12] },
+      { "trigger": "자연스러운 관심 표현", "range": [5, 8] },
+      { "trigger": "공감 표현", "range": [5, 10] },
+      { "trigger": "적절한 칭찬", "range": [3, 5] }
+    ],
+    "dislikes": [
+      { "trigger": "오글거리는 작업 멘트", "range": [-15, -10] },
+      { "trigger": "무례함 또는 일방적 반말", "range": [-20, -15] },
+      { "trigger": "과도한 자기 자랑", "range": [-10, -5] },
+      { "trigger": "성적인 발언", "range": [-30, -25] },
+      { "trigger": "집착이나 부담스러운 행동", "range": [-15, -10] }
+    ]
+  },
+  {
+    "id": "soohyun",
+    "name": "동아리 선배 수현",
+    "profileImage": "/characters/soohyun.png",
+    "age": 25,
+    "occupation": "대학원생 / 동아리 부회장",
+    "shortDescription": "다정하지만 쉽게 마음을 안 여는 동아리 선배",
+    "personality": ["다정함", "신중함", "은근 츤데레"],
+    "speechStyle": "존댓말이 기본이고, 친밀감이 생기면 부드러운 반말이 섞인다. 이모티콘은 거의 쓰지 않는다.",
+    "situation": "동아리 MT 자유시간, 캠핑장 벤치에서 둘이 우연히 마주앉았다.",
+    "mission": "MT 끝나고 같이 돌아가자고 자연스럽게 제안하기",
+    "difficulty": 2,
+    "startAffection": 45,
+    "likes": [
+      { "trigger": "진심어린 관심 표현", "range": [8, 12] },
+      { "trigger": "선후배 예의를 지키며 호감 표현", "range": [5, 10] },
+      { "trigger": "공통 관심사에 대한 대화", "range": [5, 8] },
+      { "trigger": "센스있는 배려", "range": [8, 12] }
+    ],
+    "dislikes": [
+      { "trigger": "반말 일방적 사용", "range": [-15, -10] },
+      { "trigger": "너무 노골적인 호감 표현", "range": [-10, -8] },
+      { "trigger": "다른 사람 앞에서 부담주기", "range": [-15, -10] },
+      { "trigger": "가벼운 태도", "range": [-10, -5] }
+    ]
+  },
+  {
+    "id": "harin",
+    "name": "회사 동기 하린",
+    "profileImage": "/characters/harin.png",
+    "age": 26,
+    "occupation": "마케팅팀 주니어",
+    "shortDescription": "공사 구분 확실하고 눈이 높은 회사 동기",
+    "personality": ["도도함", "프로페셔널", "속마음은 따뜻함"],
+    "speechStyle": "존댓말과 반말을 섞지만 반말 비중이 조금 높다. 건조한 유머와 유보적 표현을 자주 쓴다.",
+    "situation": "야근 중 팀에서 둘만 남았다. 둘 다 지쳐 있고 배가 고픈 상황이다.",
+    "mission": "주말에 같이 뭔가 하자고 자연스럽게 약속 잡기",
+    "difficulty": 3,
+    "startAffection": 35,
+    "likes": [
+      { "trigger": "업무 역량이나 열정을 보여줌", "range": [5, 8] },
+      { "trigger": "공사 구분하면서도 은근한 호감", "range": [8, 12] },
+      { "trigger": "유머러스하면서 지적인 대화", "range": [8, 12] },
+      { "trigger": "약한 모습 솔직하게 보여주기", "range": [10, 15] }
+    ],
+    "dislikes": [
+      { "trigger": "직장에서 대놓고 작업거는 것", "range": [-15, -10] },
+      { "trigger": "능력 없어 보이는 태도", "range": [-10, -8] },
+      { "trigger": "지나치게 가벼운 농담", "range": [-8, -5] },
+      { "trigger": "다른 여자 동기 언급", "range": [-15, -10] }
+    ]
+  }
+]
