@@ -26,7 +26,7 @@ export function CharacterCard({ character, completed, success }: Props) {
         alt="블라인드 페르소나"
         width={96}
         height={96}
-        className="h-24 w-24 rounded-2xl bg-slate-100 object-cover blur-sm saturate-75 ring-1 ring-black/5 transition group-hover:blur-[1px]"
+        className="h-24 w-24 rounded-2xl bg-slate-100 object-cover blur-sm saturate-75 ring-1 ring-black/5"
         onError={() => setImageSrc("/characters/default-avatar.svg")}
       />
       <div className="flex flex-1 flex-col gap-2">

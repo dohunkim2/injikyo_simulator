@@ -13,6 +13,7 @@ import type {
 
 type PersonasResponse = {
   personas: Character[];
+  error?: string;
 };
 
 type AvatarOptionsResponse = {
@@ -72,22 +73,34 @@ export function PersonaSettings() {
 
   useEffect(() => {
     const load = async () => {
-      const [personasResponse, avatarsResponse] = await Promise.all([
-        fetch("/api/admin/personas", { cache: "no-store" }),
-        fetch("/api/admin/avatar-options", { cache: "no-store" }),
-      ]);
+      try {
+        const [personasResponse, avatarsResponse] = await Promise.all([
+          fetch("/api/admin/personas", { cache: "no-store" }),
+          fetch("/api/admin/avatar-options", { cache: "no-store" }),
+        ]);
 
-      if (personasResponse.status === 401 || avatarsResponse.status === 401) {
-        window.location.href = "/admin/login";
-        return;
+        if (personasResponse.status === 401 || avatarsResponse.status === 401) {
+          window.location.href = "/admin/login";
+          return;
+        }
+
+        const personasPayload = (await personasResponse.json().catch(() => null)) as PersonasResponse | null;
+        const avatarsPayload = (await avatarsResponse.json().catch(() => null)) as AvatarOptionsResponse | null;
+
+        if (!personasResponse.ok || !personasPayload?.personas) {
+          throw new Error(personasPayload?.error ?? "페르소나 목록 응답을 읽지 못했습니다.");
+        }
+
+        if (!avatarsResponse.ok || !avatarsPayload?.options) {
+          throw new Error("이미지 목록 응답을 읽지 못했습니다.");
+        }
+
+        setPersonas(personasPayload.personas);
+        setAvatarOptions(avatarsPayload.options);
+        setSelectedId((current) => current ?? personasPayload.personas[0]?.id ?? null);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "페르소나 설정을 불러오지 못했습니다.");
       }
-
-      const personasPayload = (await personasResponse.json()) as PersonasResponse;
-      const avatarsPayload = (await avatarsResponse.json()) as AvatarOptionsResponse;
-
-      setPersonas(personasPayload.personas);
-      setAvatarOptions(avatarsPayload.options);
-      setSelectedId((current) => current ?? personasPayload.personas[0]?.id ?? null);
     };
 
     void load();
@@ -152,7 +165,9 @@ export function PersonaSettings() {
   if (!form) {
     return (
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-        <p className="text-sm text-slate-500">페르소나 설정을 불러오는 중입니다.</p>
+        <p className="text-sm text-slate-500">
+          {message || "페르소나 설정을 불러오는 중입니다."}
+        </p>
       </section>
     );
   }
