@@ -470,7 +470,7 @@ function AccessGate({
         </p>
         <input
           value={value}
-          type="password"
+          type="text"
           autoComplete="off"
           disabled={loading}
           onChange={(event) => onChange(event.target.value)}
