@@ -5,9 +5,15 @@ import { openRouterChat } from "@/lib/api";
 import { GAME } from "@/lib/constants";
 import { isDatabaseConfigured, saveFeedbackForRun } from "@/lib/db";
 import { getPersonaById } from "@/lib/personas";
-import type { Character, CharacterFeedback, Message, RubricFeedbackItem } from "@/lib/types";
+import type {
+  Character,
+  CharacterFeedback,
+  EvaluationRubricItem,
+  Message,
+  RubricFeedbackItem,
+} from "@/lib/types";
 
-export const maxDuration = 30;
+export const maxDuration = 45;
 
 type FeedbackMessages = Parameters<typeof openRouterChat>[0]["messages"];
 
@@ -115,6 +121,68 @@ function parseJsonResponse(raw: string, label: string): Partial<CharacterFeedbac
   } catch (error) {
     throw new Error(`${label} JSON 파싱 실패: ${getErrorMessage(error)}`);
   }
+}
+
+function splitRubricGroups(items: EvaluationRubricItem[], groupCount: number) {
+  if (items.length === 0) return [];
+
+  const size = Math.ceil(items.length / Math.max(1, groupCount));
+  const groups: EvaluationRubricItem[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    groups.push(items.slice(index, index + size));
+  }
+
+  return groups;
+}
+
+function formatRubricCriteria(items: EvaluationRubricItem[]) {
+  return items
+    .map((item) => `${item.label} ${RUBRIC_ITEM_MAX_SCORE}점 만점 - ${item.criteria}`)
+    .join(" / ");
+}
+
+function buildRubricMessages({
+  commonContext,
+  group,
+  index,
+  total,
+}: {
+  commonContext: string;
+  group: EvaluationRubricItem[];
+  index: number;
+  total: number;
+}): FeedbackMessages {
+  return [
+    {
+      role: "system",
+      content:
+        "당신은 대화 훈련 루브릭 채점관입니다. 반드시 JSON만 반환하세요. 점수는 관대하게 뭉개지 말고 기준별로 독립 판단하세요.",
+    },
+    {
+      role: "user",
+      content: `${commonContext}
+
+아래는 전체 루브릭 중 ${index + 1}/${total} 그룹입니다. 이 그룹의 기준만 채점하세요.
+평가 기준: ${formatRubricCriteria(group)}
+
+루브릭 점수만 아래 JSON으로 반환하세요. JSON 외 다른 텍스트 없이:
+{
+  "rubricScores": [
+    {
+      "label": "평가 기준의 label 원문",
+      "score": 0,
+      "evidence": "대화에서 점수 근거가 되는 사용자 발언 원문 또는 해당 발화 없음",
+      "comment": "짧은 판정 코멘트"
+    }
+  ]
+}
+
+rubricScores는 이 그룹의 label을 빠짐없이 포함해야 합니다.
+모든 score는 0~10 사이 숫자이며, 각 기준은 10점 만점입니다.
+점수 기준: 10=탁월함, 8=충분히 좋음, 6=일부 충족, 4=약함, 2=거의 없음, 0=반대/부재.`,
+    },
+  ];
 }
 
 async function runFeedbackEvaluation({
@@ -237,42 +305,25 @@ export async function POST(request: Request) {
 
     const commonContext = `아래는 대화 훈련 시뮬레이션에서 사용자와 "${activeCharacter.name}"의 대화입니다.
 과제: ${activeCharacter.mission}
-평가 기준: ${activeCharacter.evaluationRubric?.map((item) => `${item.label} ${RUBRIC_ITEM_MAX_SCORE}점 만점 - ${item.criteria}`).join(" / ") ?? "대화 목표 달성도"}
 결과: ${body.success ? "성공" : "실패"} (최종 ${activeCharacter.scoreLabel ?? "성공 점수"} ${body.finalAffection}/100)
 
 [대화 내역]
 ${formattedMessages}`;
 
-    const rubricMessages: FeedbackMessages = [
-        {
-          role: "system",
-          content: "당신은 대화 훈련 루브릭 채점관입니다. 반드시 JSON만 반환하세요.",
-        },
-        {
-          role: "user",
-          content: `${commonContext}
-
-루브릭 점수만 아래 JSON으로 반환하세요. JSON 외 다른 텍스트 없이:
-{
-  "rubricScores": [
-    {
-      "label": "평가 기준의 label 원문",
-      "score": 0,
-      "evidence": "대화에서 점수 근거가 되는 사용자 발언 또는 결여점",
-      "comment": "짧은 판정 코멘트"
-    }
-  ]
-}
-
-rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니다. 모든 score는 0~10 사이 숫자이며, 각 기준은 10점 만점입니다.`,
-        },
-    ];
-    const rubricEvaluation = runFeedbackEvaluation({
-      label: "루브릭 평가",
-      messages: rubricMessages,
-      maxTokens: Math.min(2400, Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.6)),
-      temperature: 0.4,
-    });
+    const rubricGroups = splitRubricGroups(activeCharacter.evaluationRubric ?? [], 3);
+    const rubricEvaluations = rubricGroups.map((group, index) =>
+      runFeedbackEvaluation({
+        label: `루브릭 평가 ${index + 1}/${rubricGroups.length}`,
+        messages: buildRubricMessages({
+          commonContext,
+          group,
+          index,
+          total: rubricGroups.length,
+        }),
+        maxTokens: Math.min(2200, Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.25)),
+        temperature: 0.35,
+      }),
+    );
 
     const narrativeMessages: FeedbackMessages = [
         {
@@ -297,14 +348,25 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
     const narrativeEvaluation = runFeedbackEvaluation({
       label: "서술 평가",
       messages: narrativeMessages,
-      maxTokens: Math.min(2000, Math.floor(GAME.FEEDBACK_MAX_TOKENS * 0.4)),
+      maxTokens: Math.min(2600, Math.floor(GAME.FEEDBACK_MAX_TOKENS * 0.35)),
       temperature: 0.6,
     });
 
-    const [rubricResult, narrativeResult] = await Promise.allSettled([rubricEvaluation, narrativeEvaluation]);
+    const [rubricResults, narrativeResult] = await Promise.all([
+      Promise.allSettled(rubricEvaluations),
+      Promise.resolve(narrativeEvaluation).then(
+        (value) => ({ status: "fulfilled" as const, value }),
+        (reason) => ({ status: "rejected" as const, reason }),
+      ),
+    ]);
 
-    if (rubricResult.status === "rejected") {
-      const errorDetails = [`루브릭 평가 실패: ${getErrorMessage(rubricResult.reason)}`];
+    const rejectedRubrics = rubricResults.flatMap((result, index) =>
+      result.status === "rejected" ? [{ index, reason: result.reason }] : [],
+    );
+    if (rejectedRubrics.length > 0) {
+      const errorDetails = rejectedRubrics.map((result) =>
+        `루브릭 그룹 ${result.index + 1} 실패: ${getErrorMessage(result.reason)}`,
+      );
       if (narrativeResult.status === "rejected") {
         errorDetails.push(`서술 평가 실패: ${getErrorMessage(narrativeResult.reason)}`);
       }
@@ -322,8 +384,13 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
       );
     }
 
+    const mergedRubricScores = rubricResults.flatMap((result) =>
+      result.status === "fulfilled" && Array.isArray(result.value.rubricScores)
+        ? result.value.rubricScores
+        : [],
+    );
     const parsed: Partial<CharacterFeedback> = {
-      ...rubricResult.value,
+      rubricScores: mergedRubricScores,
       ...(narrativeResult.status === "fulfilled"
         ? narrativeResult.value
         : {
