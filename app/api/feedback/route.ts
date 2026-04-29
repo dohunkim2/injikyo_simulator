@@ -8,6 +8,8 @@ import type { Character, CharacterFeedback, Message, RubricFeedbackItem } from "
 
 export const maxDuration = 30;
 
+type FeedbackMessages = Parameters<typeof openRouterChat>[0]["messages"];
+
 const requestSchema = z.object({
   characterId: z.string().min(1),
   messages: z.array(
@@ -111,6 +113,46 @@ function parseJsonResponse(raw: string, label: string): Partial<CharacterFeedbac
   }
 }
 
+async function runFeedbackEvaluation({
+  label,
+  messages,
+  maxTokens,
+  temperature,
+}: {
+  label: string;
+  messages: FeedbackMessages;
+  maxTokens: number;
+  temperature: number;
+}) {
+  try {
+    const raw = await openRouterChat({
+      model: GAME.FEEDBACK_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+      timeoutMs: GAME.FEEDBACK_PRIMARY_TIMEOUT_MS,
+    });
+
+    return parseJsonResponse(raw, label);
+  } catch (primaryError) {
+    try {
+      const raw = await openRouterChat({
+        model: GAME.CHAT_MODEL_BACKUP,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+        timeoutMs: GAME.FEEDBACK_BACKUP_TIMEOUT_MS,
+      });
+
+      return parseJsonResponse(raw, `${label} 백업`);
+    } catch (backupError) {
+      throw new Error(
+        `${label} 1차(${GAME.FEEDBACK_MODEL}) 실패: ${getErrorMessage(primaryError)}; 백업(${GAME.CHAT_MODEL_BACKUP}) 실패: ${getErrorMessage(backupError)}`,
+      );
+    }
+  }
+}
+
 function normalizeMessages(messages: z.infer<typeof requestSchema>["messages"]): Message[] {
   return messages.map((message) => ({
     ...message,
@@ -196,9 +238,7 @@ export async function POST(request: Request) {
 [대화 내역]
 ${formattedMessages}`;
 
-    const rubricEvaluation = openRouterChat({
-      model: GAME.FEEDBACK_MODEL,
-      messages: [
+    const rubricMessages: FeedbackMessages = [
         {
           role: "system",
           content: "당신은 대화 훈련 루브릭 채점관입니다. 반드시 JSON만 반환하세요.",
@@ -221,15 +261,15 @@ ${formattedMessages}`;
 
 rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니다. score는 각 기준의 만점(points)을 넘기지 마세요.`,
         },
-      ],
-      max_tokens: Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.6),
+    ];
+    const rubricEvaluation = runFeedbackEvaluation({
+      label: "루브릭 평가",
+      messages: rubricMessages,
+      maxTokens: Math.min(2400, Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.6)),
       temperature: 0.4,
-      timeoutMs: GAME.FEEDBACK_TIMEOUT_MS,
-    }).then((raw) => parseJsonResponse(raw, "루브릭 평가"));
+    });
 
-    const narrativeEvaluation = openRouterChat({
-      model: GAME.FEEDBACK_MODEL,
-      messages: [
+    const narrativeMessages: FeedbackMessages = [
         {
           role: "system",
           content: "당신은 대화 훈련 결과 리포트 작성자입니다. 반드시 JSON만 반환하세요.",
@@ -248,11 +288,13 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
   "judgeComment": "인바디 결과지처럼 종합 진단 1~2문장"
 }`,
         },
-      ],
-      max_tokens: Math.floor(GAME.FEEDBACK_MAX_TOKENS * 0.4),
+    ];
+    const narrativeEvaluation = runFeedbackEvaluation({
+      label: "서술 평가",
+      messages: narrativeMessages,
+      maxTokens: Math.min(2000, Math.floor(GAME.FEEDBACK_MAX_TOKENS * 0.4)),
       temperature: 0.6,
-      timeoutMs: GAME.FEEDBACK_TIMEOUT_MS,
-    }).then((raw) => parseJsonResponse(raw, "서술 평가"));
+    });
 
     const [rubricResult, narrativeResult] = await Promise.allSettled([rubricEvaluation, narrativeEvaluation]);
 

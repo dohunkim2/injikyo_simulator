@@ -57,7 +57,7 @@ function inferRedFlagPenalty(characterId: string, userMessage: string) {
   const normalized = userMessage.replace(/\s+/g, " ").trim().toLowerCase();
 
   const redFlagsByCharacter: Record<string, Array<{ patterns: string[]; penalty: number }>> = {
-    "reconciliation-swings": [
+    "reconciliation-swings-revised": [
       {
         patterns: [
           "형 잘못",
@@ -83,19 +83,19 @@ function inferRedFlagPenalty(characterId: string, userMessage: string) {
         penalty: -16,
       },
     ],
-    "persuasion-professor-ahn": [
+    "persuasion-professor-ahn-sj": [
       {
         patterns: ["장학금", "취업", "다른 친구", "다른 애", "f 받으면", "올려주세요", "억울"],
         penalty: -22,
       },
     ],
-    "love-mt-walk": [
+    "love-mt-female-peer": [
       {
         patterns: ["오늘부터 1일", "사귀자 지금", "스킨십", "딴 애", "다른 애", "술김", "키스"],
         penalty: -24,
       },
     ],
-    "refusal-cha-eunwoo": [
+    "refusal-cha-eunwoo-fictional": [
       {
         patterns: ["생각해볼게", "빌려줄게", "얼마 필요", "조금은 가능", "나중에 줄게", "일단 줄게"],
         penalty: -26,

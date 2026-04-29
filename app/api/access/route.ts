@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import * as z from "zod";
 
 const chatKeywordByCharacterId: Record<string, string> = {
-  "reconciliation-swings": "스윙스",
-  "persuasion-professor-ahn": "컴에듀",
-  "love-mt-walk": "두근두근",
-  "refusal-cha-eunwoo": "차은우",
+  "reconciliation-swings-revised": "스윙스",
+  "persuasion-professor-ahn-sj": "컴에듀",
+  "love-mt-female-peer": "두근두근",
+  "refusal-cha-eunwoo-fictional": "차은우",
 };
 
 const resetKeyword = "미안합니다";
