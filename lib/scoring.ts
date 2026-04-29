@@ -39,7 +39,11 @@ function resolveDynamicChange(
   // 모델이 소심하게 준 변화도 게임에서는 체감되게 만든다.
   const boosted =
     sign > 0
-      ? Math.max(1, Math.round(absolute * 0.78))
+      ? absolute <= 3
+        ? absolute + 3
+        : absolute <= 9
+          ? Math.round(absolute * 1.25)
+          : Math.round(absolute * 1.12)
       : absolute <= 3
         ? absolute + 3
         : absolute <= 12

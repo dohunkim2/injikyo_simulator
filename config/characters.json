@@ -4,8 +4,8 @@
     "name": "스윙스",
     "profileImage": "/characters/swings.png",
     "imageStages": [
-      { "minScore": 0, "image": "/characters/swings.png", "label": "낮고 묵직한 분노" },
-      { "minScore": 60, "image": "/characters/swings.png", "label": "말을 들어보는 중" },
+      { "minScore": 0, "image": "/characters/anger_swings.png", "label": "낮고 묵직한 분노" },
+      { "minScore": 40, "image": "/characters/swings.png", "label": "말을 들어보는 중" },
       { "minScore": 85, "image": "/characters/swings.png", "label": "관계 회복 직전" }
     ],
     "age": 41,
@@ -52,11 +52,11 @@
   {
     "id": "persuasion-professor-ahn-sj",
     "name": "안성진 교수님",
-    "profileImage": "/characters/default-avatar.svg",
+    "profileImage": "/characters/ahn.png",
     "imageStages": [
-      { "minScore": 0, "image": "/characters/default-avatar.svg", "label": "원칙적 검토" },
-      { "minScore": 60, "image": "/characters/default-avatar.svg", "label": "근거 확인 중" },
-      { "minScore": 85, "image": "/characters/default-avatar.svg", "label": "재검토 가능성" }
+      { "minScore": 0, "image": "/characters/ahn.png", "label": "원칙적 검토" },
+      { "minScore": 60, "image": "/characters/ahn.png", "label": "근거 확인 중" },
+      { "minScore": 85, "image": "/characters/ahn.png", "label": "재검토 가능성" }
     ],
     "age": 50,
     "occupation": "성균관대학교 컴퓨터교육과 교수 / 컴퓨터네트워크",
@@ -103,11 +103,11 @@
   {
     "id": "love-mt-female-peer",
     "name": "엠티에서 만난 같은 과 여성 동기",
-    "profileImage": "/characters/mt-girl.png",
+    "profileImage": "/characters/ruby.png",
     "imageStages": [
-      { "minScore": 0, "image": "/characters/mt-girl.png", "label": "조심스러운 거리감" },
-      { "minScore": 60, "image": "/characters/mt-girl.png", "label": "분위기 상승" },
-      { "minScore": 85, "image": "/characters/mt-girl.png", "label": "관계 전환 직전" }
+      { "minScore": 0, "image": "/characters/ruby.png", "label": "조심스러운 거리감" },
+      { "minScore": 60, "image": "/characters/ruby.png", "label": "분위기 상승" },
+      { "minScore": 85, "image": "/characters/ruby.png", "label": "관계 전환 직전" }
     ],
     "age": 20,
     "occupation": "성균관대학교 컴퓨터교육과 재학생",
@@ -154,11 +154,11 @@
   {
     "id": "refusal-cha-eunwoo-fictional",
     "name": "차은우",
-    "profileImage": "/characters/cha-eunwoo.png",
+    "profileImage": "/characters/talse.png",
     "imageStages": [
-      { "minScore": 0, "image": "/characters/cha-eunwoo.png", "label": "부담스러운 요청" },
-      { "minScore": 60, "image": "/characters/cha-eunwoo.png", "label": "경계가 전달되는 중" },
-      { "minScore": 85, "image": "/characters/cha-eunwoo.png", "label": "단호한 거절 직전" }
+      { "minScore": 0, "image": "/characters/talse.png", "label": "부담스러운 요청" },
+      { "minScore": 60, "image": "/characters/talse.png", "label": "경계가 전달되는 중" },
+      { "minScore": 85, "image": "/characters/talse.png", "label": "단호한 거절 직전" }
     ],
     "age": 30,
     "occupation": "가수 / 배우 / 군 복무 중인 톱스타",
