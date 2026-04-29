@@ -18,6 +18,7 @@ export const maxDuration = 45;
 type FeedbackMessages = Parameters<typeof openRouterChat>[0]["messages"];
 
 const RUBRIC_ITEM_MAX_SCORE = 10;
+const RUBRIC_GROUP_DELAY_MS = 650;
 
 const requestSchema = z.object({
   characterId: z.string().min(1),
@@ -107,6 +108,10 @@ function extractJsonBlock(raw: string) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "알 수 없는 오류";
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseJsonResponse(raw: string, label: string): Partial<CharacterFeedback> {
@@ -226,6 +231,42 @@ async function runFeedbackEvaluation({
   }
 }
 
+async function runRubricEvaluationsSequentially({
+  commonContext,
+  rubricGroups,
+}: {
+  commonContext: string;
+  rubricGroups: EvaluationRubricItem[][];
+}) {
+  const results: Array<PromiseSettledResult<Partial<CharacterFeedback>>> = [];
+
+  for (let index = 0; index < rubricGroups.length; index += 1) {
+    if (index > 0) {
+      await wait(RUBRIC_GROUP_DELAY_MS);
+    }
+
+    try {
+      const value = await runFeedbackEvaluation({
+        label: `루브릭 평가 ${index + 1}/${rubricGroups.length}`,
+        messages: buildRubricMessages({
+          commonContext,
+          group: rubricGroups[index],
+          index,
+          total: rubricGroups.length,
+        }),
+        maxTokens: Math.min(2200, Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.25)),
+        temperature: 0.35,
+      });
+
+      results.push({ status: "fulfilled", value });
+    } catch (reason) {
+      results.push({ status: "rejected", reason });
+    }
+  }
+
+  return results;
+}
+
 function normalizeMessages(messages: z.infer<typeof requestSchema>["messages"]): Message[] {
   return messages.map((message) => ({
     ...message,
@@ -311,19 +352,10 @@ export async function POST(request: Request) {
 ${formattedMessages}`;
 
     const rubricGroups = splitRubricGroups(activeCharacter.evaluationRubric ?? [], 3);
-    const rubricEvaluations = rubricGroups.map((group, index) =>
-      runFeedbackEvaluation({
-        label: `루브릭 평가 ${index + 1}/${rubricGroups.length}`,
-        messages: buildRubricMessages({
-          commonContext,
-          group,
-          index,
-          total: rubricGroups.length,
-        }),
-        maxTokens: Math.min(2200, Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.25)),
-        temperature: 0.35,
-      }),
-    );
+    const rubricEvaluation = runRubricEvaluationsSequentially({
+      commonContext,
+      rubricGroups,
+    });
 
     const narrativeMessages: FeedbackMessages = [
         {
@@ -353,7 +385,7 @@ ${formattedMessages}`;
     });
 
     const [rubricResults, narrativeResult] = await Promise.all([
-      Promise.allSettled(rubricEvaluations),
+      rubricEvaluation,
       Promise.resolve(narrativeEvaluation).then(
         (value) => ({ status: "fulfilled" as const, value }),
         (reason) => ({ status: "rejected" as const, reason }),
