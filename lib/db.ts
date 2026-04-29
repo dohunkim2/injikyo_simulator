@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import postgres from "postgres";
 
 import type {
@@ -90,8 +91,6 @@ export async function ensureTables() {
     throw new Error("POSTGRES_URL이 설정되지 않았습니다.");
   }
 
-  await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
-
   await sql`
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
@@ -103,7 +102,7 @@ export async function ensureTables() {
 
   await sql`
     CREATE TABLE IF NOT EXISTS conversation_runs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      id UUID PRIMARY KEY,
       player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
       character_id TEXT NOT NULL,
       character_name TEXT NOT NULL,
@@ -121,7 +120,7 @@ export async function ensureTables() {
 
   await sql`
     CREATE TABLE IF NOT EXISTS conversation_messages (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      id UUID PRIMARY KEY,
       run_id UUID NOT NULL REFERENCES conversation_runs(id) ON DELETE CASCADE,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -165,9 +164,11 @@ async function upsertPlayer(playerId: string, nickname: string) {
 export async function startSession(input: StartSessionInput) {
   await ensureTables();
   await upsertPlayer(input.playerId, input.nickname);
+  const newRunId = randomUUID();
 
   const runResult = await sql<{ id: string }>`
     INSERT INTO conversation_runs (
+      id,
       player_id,
       character_id,
       character_name,
@@ -179,6 +180,7 @@ export async function startSession(input: StartSessionInput) {
       last_message_at
     )
     VALUES (
+      ${newRunId},
       ${input.playerId},
       ${input.characterId},
       ${input.characterName},
@@ -207,8 +209,9 @@ export async function appendSessionMessage(input: AppendSessionMessageInput) {
   const sentAt = new Date(input.timestamp).toISOString();
 
   await sql`
-    INSERT INTO conversation_messages (run_id, role, content, sent_at, message_index)
+    INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
     VALUES (
+      ${randomUUID()},
       ${input.runId},
       ${input.role},
       ${input.content},

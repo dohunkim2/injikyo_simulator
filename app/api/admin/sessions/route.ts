@@ -19,9 +19,11 @@ export async function GET() {
   try {
     const sessions = await getAdminSessions(50);
     return NextResponse.json({ configured: true, sessions });
-  } catch {
+  } catch (error) {
+    console.error("Failed to load admin sessions", error);
+    const detail = error instanceof Error ? error.message : "알 수 없는 오류";
     return NextResponse.json(
-      { configured: false, sessions: [], message: "세션 목록을 불러오지 못했습니다." },
+      { configured: false, sessions: [], message: `세션 목록을 불러오지 못했습니다: ${detail}` },
       { status: 500 },
     );
   }
@@ -39,7 +41,9 @@ export async function DELETE() {
   try {
     const result = await clearAdminConversationLogs();
     return NextResponse.json({ ok: true, deletedRuns: result.deletedRuns });
-  } catch {
-    return NextResponse.json({ error: "세션 기록 삭제에 실패했습니다." }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to clear admin sessions", error);
+    const detail = error instanceof Error ? error.message : "알 수 없는 오류";
+    return NextResponse.json({ error: `세션 기록 삭제에 실패했습니다: ${detail}` }, { status: 500 });
   }
 }
