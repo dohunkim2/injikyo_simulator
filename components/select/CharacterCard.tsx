@@ -14,6 +14,7 @@ type Props = {
 
 export function CharacterCard({ character, completed, success }: Props) {
   const [imageSrc, setImageSrc] = useState(character.profileImage);
+  const objective = getObjectiveLabel(character);
 
   return (
     <Link
@@ -22,17 +23,19 @@ export function CharacterCard({ character, completed, success }: Props) {
     >
       <Image
         src={imageSrc}
-        alt={character.name}
+        alt="블라인드 페르소나"
         width={96}
         height={96}
-        className="h-24 w-24 rounded-2xl bg-slate-100 object-cover ring-1 ring-black/5"
+        className="h-24 w-24 rounded-2xl bg-slate-100 object-cover blur-sm saturate-75 ring-1 ring-black/5 transition group-hover:blur-[1px]"
         onError={() => setImageSrc("/characters/default-avatar.svg")}
       />
       <div className="flex flex-1 flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-lg font-semibold text-slate-900 group-hover:text-slate-950">{character.name}</p>
-            <p className="text-sm text-slate-500">{character.occupation}</p>
+            <p className="text-lg font-semibold text-slate-900 group-hover:text-slate-950">
+              블라인드 페르소나
+            </p>
+            <p className="text-sm text-slate-500">목적: {objective}</p>
           </div>
           {completed ? (
             <span
@@ -45,10 +48,20 @@ export function CharacterCard({ character, completed, success }: Props) {
           ) : null}
         </div>
 
-        <p className="text-sm leading-6 text-slate-700">{character.shortDescription}</p>
+        <p className="text-sm leading-6 text-slate-700">
+          {objective} 목적의 대화 훈련입니다. 상대가 누구인지는 대화에 들어가기 전까지 공개되지 않습니다.
+        </p>
 
-        <p className="text-xs leading-5 text-slate-500">{character.situation}</p>
+        <p className="text-xs leading-5 text-slate-500">키워드만 보고 전략을 세운 뒤 대화를 시작하세요.</p>
       </div>
     </Link>
   );
+}
+
+function getObjectiveLabel(character: Character) {
+  if (character.id.startsWith("reconciliation")) return "화해";
+  if (character.id.startsWith("persuasion")) return "설득";
+  if (character.id.startsWith("love")) return "사랑";
+  if (character.id.startsWith("refusal")) return "거절";
+  return character.scoreLabel?.replace(" 점수", "") ?? "대화";
 }

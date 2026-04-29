@@ -16,7 +16,15 @@ import { StatusMessage } from "@/components/game/StatusMessage";
 import { TurnCounter } from "@/components/game/TurnCounter";
 import { getCharacterById } from "@/lib/characters";
 import { storage } from "@/lib/storage";
-import type { Character, CharacterFeedback, ChatState, Message, SessionSaveStatus, StatusUpdate } from "@/lib/types";
+import type {
+  Character,
+  CharacterFeedback,
+  CharacterImageStage,
+  ChatState,
+  Message,
+  SessionSaveStatus,
+  StatusUpdate,
+} from "@/lib/types";
 import { createInitialChatState } from "@/lib/utils";
 
 type ChatApiResponse = {
@@ -78,8 +86,12 @@ function ChatScreen({ character }: { character: Character }) {
   const [error, setError] = useState("");
   const [toastValue, setToastValue] = useState<number | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
-  const [headerImage, setHeaderImage] = useState(character.profileImage);
+  const [sceneImage, setSceneImage] = useState(character.profileImage);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const currentImageStage = useMemo(
+    () => getImageStage(character, chatState.affection),
+    [character, chatState.affection],
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -104,6 +116,10 @@ function ChatScreen({ character }: { character: Character }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatState.messages.length, typing, error]);
+
+  useEffect(() => {
+    setSceneImage(currentImageStage.image);
+  }, [currentImageStage.image]);
 
   const finishGame = async (messages: Message[], nextState: ChatState) => {
     try {
@@ -315,8 +331,38 @@ function ChatScreen({ character }: { character: Character }) {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#B2C7D9] text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col">
+    <main className="relative min-h-screen bg-slate-900 text-slate-900">
+      <div className="mx-auto grid min-h-screen max-w-7xl gap-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
+        <aside className="relative flex min-h-[42vh] flex-col justify-end overflow-hidden bg-slate-950 p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:p-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#38bdf8_0,transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.2),rgba(15,23,42,0.95))]" />
+          <Image
+            src={sceneImage}
+            alt={character.name}
+            fill
+            sizes="(min-width: 1024px) 45vw, 100vw"
+            className="object-cover opacity-85"
+            priority
+            onError={() => setSceneImage("/characters/default-avatar.svg")}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/10" />
+          <div className="relative z-10 rounded-[2rem] bg-white/10 p-5 shadow-2xl ring-1 ring-white/15 backdrop-blur">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
+              {currentImageStage.label}
+            </p>
+            <h1 className="mt-3 text-3xl font-black">{character.name}</h1>
+            <p className="mt-1 text-sm text-white/65">{character.occupation}</p>
+            <div className="mt-5 rounded-2xl bg-black/25 px-4 py-3">
+              <p className="text-xs text-white/55">{character.scoreLabel ?? "성공 점수"}</p>
+              <p className="mt-1 text-4xl font-black">
+                {chatState.affection}
+                <span className="ml-1 text-base text-white/50">/100</span>
+              </p>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-white/75">{character.situation}</p>
+          </div>
+        </aside>
+
+        <div className="flex min-h-screen flex-col bg-[#B2C7D9]">
         <header className="sticky top-0 z-10 flex items-center gap-3 bg-[#a9bfd2] px-4 py-3 shadow-sm">
           <button
             onClick={() => router.push("/")}
@@ -326,12 +372,12 @@ function ChatScreen({ character }: { character: Character }) {
             <ChevronLeft size={18} />
           </button>
           <Image
-            src={headerImage}
+            src={sceneImage}
             alt={character.name}
             width={40}
             height={40}
             className="h-10 w-10 rounded-full bg-white/70 object-cover"
-            onError={() => setHeaderImage("/characters/default-avatar.svg")}
+            onError={() => setSceneImage("/characters/default-avatar.svg")}
           />
           <div>
             <p className="font-semibold">{character.name}</p>
@@ -366,7 +412,7 @@ function ChatScreen({ character }: { character: Character }) {
                 timestamp: chatState.startedAt,
               }}
               characterName={character.name}
-              characterImage={character.profileImage}
+              characterImage={sceneImage}
             />
           ) : null}
           {chatState.messages.length === 0 ? (
@@ -386,7 +432,7 @@ function ChatScreen({ character }: { character: Character }) {
                 key={`${message.timestamp}-${index}`}
                 message={message}
                 characterName={character.name}
-                characterImage={character.profileImage}
+                characterImage={sceneImage}
                 showProfile={showProfile}
                 showTime={showTime}
               />
@@ -407,6 +453,7 @@ function ChatScreen({ character }: { character: Character }) {
           onChange={setInput}
           onSubmit={handleSubmit}
         />
+        </div>
       </div>
 
       {toastValue !== null ? <AffectionToast value={toastValue} /> : null}
@@ -417,5 +464,22 @@ function ChatScreen({ character }: { character: Character }) {
         onClose={() => setShowGameOver(false)}
       />
     </main>
+  );
+}
+
+function getImageStage(character: Character, score: number): CharacterImageStage {
+  const stages = character.imageStages?.length
+    ? [...character.imageStages].sort((a, b) => a.minScore - b.minScore)
+    : [
+        {
+          minScore: 0,
+          image: character.profileImage,
+          label: "현재 페르소나",
+        },
+      ];
+
+  return stages.reduce<CharacterImageStage>(
+    (selected, stage) => (score >= stage.minScore ? stage : selected),
+    stages[0],
   );
 }

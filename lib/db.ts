@@ -474,6 +474,21 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
   };
 }
 
+export async function clearAdminConversationLogs() {
+  await ensureTables();
+
+  const countResult = await sql<{ count: number }>`
+    SELECT COUNT(*)::int AS count
+    FROM conversation_runs
+  `;
+  const deletedRuns = countResult.rows[0]?.count ?? 0;
+
+  await sql`DELETE FROM conversation_messages`;
+  await sql`DELETE FROM conversation_runs`;
+
+  return { deletedRuns };
+}
+
 export async function getPersonaConfigOverrides(): Promise<PersonaConfigRecord[]> {
   await ensureTables();
 

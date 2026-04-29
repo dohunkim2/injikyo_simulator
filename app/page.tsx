@@ -19,7 +19,6 @@ export default function Home() {
   const [saved, setSaved] = useState<SavedData | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [resetStatus, setResetStatus] = useState(storage.getResetStatus());
   const allCompleted = mounted
     ? characters.every((character) => Boolean(saved?.characters[character.id]?.chatState?.isGameOver))
     : false;
@@ -28,7 +27,6 @@ export default function Home() {
     setMounted(true);
     setSaved(storage.load());
     setProfile(storage.getOrCreatePlayerProfile());
-    setResetStatus(storage.getResetStatus());
 
     const loadPersonas = async () => {
       const response = await fetch("/api/personas", { cache: "no-store" });
@@ -69,26 +67,14 @@ export default function Home() {
               </Link>
               <button
                 onClick={() => {
-                  const result = storage.resetWithLimit();
-                  setResetStatus(result);
-                  if (!result.ok) {
-                    window.alert("기록 초기화 가능 횟수를 모두 사용했습니다.");
-                    return;
-                  }
-
+                  storage.reset();
                   setSaved(storage.load());
                   setProfile(storage.getOrCreatePlayerProfile());
                 }}
-                disabled={mounted && resetStatus.remaining !== null && resetStatus.remaining <= 0}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/10"
               >
                 <RotateCcw size={16} />
                 기록 초기화
-                {mounted ? (
-                  <span className="text-xs text-white/60">
-                    {resetStatus.remaining === null ? "로컬 무제한" : `남은 ${resetStatus.remaining}회`}
-                  </span>
-                ) : null}
               </button>
               <Link
                 href="/admin"

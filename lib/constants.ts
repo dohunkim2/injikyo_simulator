@@ -20,8 +20,6 @@ export const GAME = {
 } as const;
 
 export const STORAGE_KEY = "dating-sim-v1";
-export const RESET_LIMIT = 2;
-export const RESET_COUNT_STORAGE_KEY = "dating-sim-reset-count-v1";
 export const DEFAULT_STATUS_MESSAGE = "표정을 읽기 어렵다";
 
 export const COLORS = {

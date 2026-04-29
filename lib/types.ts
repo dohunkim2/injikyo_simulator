@@ -11,10 +11,17 @@ export type EvaluationRubricItem = {
   criteria: string;
 };
 
+export type CharacterImageStage = {
+  minScore: number;
+  image: string;
+  label: string;
+};
+
 export interface CharacterConfig {
   id: string;
   name: string;
   profileImage: string;
+  imageStages?: CharacterImageStage[];
   age: number;
   occupation: string;
   shortDescription: string;

@@ -1,4 +1,4 @@
-import { RESET_COUNT_STORAGE_KEY, RESET_LIMIT, STORAGE_KEY } from "./constants";
+import { STORAGE_KEY } from "./constants";
 import { getCharacterById, getCharacters } from "./characters";
 import type {
   AllConversationsPayload,
@@ -15,10 +15,6 @@ function createEmptyData(): SavedData {
     characters: {},
     createdAt: Date.now(),
   };
-}
-
-function isResetUnlimited(): boolean {
-  return process.env.NODE_ENV !== "production";
 }
 
 export const storage = {
@@ -121,56 +117,6 @@ export const storage = {
     const data = this.load();
     if (!data) return false;
     return characterIds.every((id) => Boolean(data.characters[id]?.chatState?.isGameOver));
-  },
-
-  getResetStatus(): { used: number; remaining: number | null; limit: number | null } {
-    if (isResetUnlimited()) {
-      return { used: 0, remaining: null, limit: null };
-    }
-
-    if (typeof window === "undefined") {
-      return { used: 0, remaining: RESET_LIMIT, limit: RESET_LIMIT };
-    }
-
-    const raw = window.localStorage.getItem(RESET_COUNT_STORAGE_KEY);
-    const used = Math.max(0, Number.parseInt(raw ?? "0", 10) || 0);
-    return {
-      used,
-      remaining: Math.max(0, RESET_LIMIT - used),
-      limit: RESET_LIMIT,
-    };
-  },
-
-  resetWithLimit(): {
-    ok: boolean;
-    used: number;
-    remaining: number | null;
-    limit: number | null;
-  } {
-    if (typeof window === "undefined") {
-      return { ok: false, ...this.getResetStatus() };
-    }
-
-    const status = this.getResetStatus();
-    if (status.remaining === null) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return { ok: true, ...status };
-    }
-
-    if (status.remaining <= 0) {
-      return { ok: false, ...status };
-    }
-
-    window.localStorage.removeItem(STORAGE_KEY);
-    const used = status.used + 1;
-    window.localStorage.setItem(RESET_COUNT_STORAGE_KEY, String(used));
-
-    return {
-      ok: true,
-      used,
-      remaining: Math.max(0, RESET_LIMIT - used),
-      limit: RESET_LIMIT,
-    };
   },
 
   getAllConversations(): AllConversationsPayload {

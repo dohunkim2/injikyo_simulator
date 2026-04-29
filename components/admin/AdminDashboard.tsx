@@ -45,6 +45,7 @@ export function AdminDashboard() {
   const [detail, setDetail] = useState<AdminSessionDetail | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
 
   const personaGroups = useMemo(() => {
     const groups = new Map<string, PersonaGroup>();
@@ -127,6 +128,48 @@ export function AdminDashboard() {
     window.location.href = "/admin/login";
   };
 
+  const handleClearLogs = async () => {
+    if (clearing) return;
+
+    const confirmed = window.confirm(
+      "모든 유저 대화 로그와 랭킹 기록을 삭제할까요? 페르소나 설정은 유지됩니다.",
+    );
+
+    if (!confirmed) return;
+
+    setClearing(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/sessions", { method: "DELETE" });
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        deletedRuns?: number;
+        error?: string;
+      } | null;
+
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "로그 삭제에 실패했습니다.");
+      }
+
+      setSessions([]);
+      setSelectedCharacterId(null);
+      setSelectedRunId(null);
+      setDetail(null);
+      setMessage(`대화 로그 ${payload.deletedRuns ?? 0}건을 삭제했습니다.`);
+      await loadSessions();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "로그 삭제에 실패했습니다.");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900">
       <div className="mx-auto max-w-7xl space-y-5">
@@ -166,7 +209,26 @@ export function AdminDashboard() {
 
         {tab === "settings" ? <PersonaSettings /> : null}
 
-        {tab === "monitor" ? <div className="grid gap-5 xl:grid-cols-[280px_360px_1fr]">
+        {tab === "monitor" ? (
+          <div className="space-y-4">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+              <div>
+                <p className="font-semibold text-slate-900">관리자 로그 관리</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  테스트/발표 전 서버에 저장된 대화 로그와 랭킹 기록을 모두 비웁니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearLogs}
+                disabled={clearing || sessions.length === 0}
+                className="rounded-full bg-rose-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {clearing ? "삭제 중..." : "전체 로그 초기화"}
+              </button>
+            </section>
+
+            <div className="grid gap-5 xl:grid-cols-[280px_360px_1fr]">
           <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">페르소나</h2>
@@ -293,7 +355,9 @@ export function AdminDashboard() {
               </div>
             )}
           </section>
-        </div> : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );

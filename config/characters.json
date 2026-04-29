@@ -2,7 +2,12 @@
   {
     "id": "reconciliation-swings",
     "name": "스윙스",
-    "profileImage": "/characters/default-avatar.svg",
+    "profileImage": "/characters/swings.png",
+    "imageStages": [
+      { "minScore": 0, "image": "/characters/swings.png", "label": "긴장 상태" },
+      { "minScore": 60, "image": "/characters/swings.png", "label": "대화가 풀리는 중" },
+      { "minScore": 85, "image": "/characters/swings.png", "label": "관계 회복 직전" }
+    ],
     "age": 38,
     "occupation": "힙합씬 대선배 / 래퍼",
     "shortDescription": "디스전과 밈으로 번진 갈등 이후, 힙합 대선배에게 책임 있게 사과하고 관계 회복의 실마리를 만드는 과제",
@@ -48,6 +53,11 @@
     "id": "persuasion-professor-ahn",
     "name": "안성진 교수",
     "profileImage": "/characters/default-avatar.svg",
+    "imageStages": [
+      { "minScore": 0, "image": "/characters/default-avatar.svg", "label": "경계 상태" },
+      { "minScore": 60, "image": "/characters/default-avatar.svg", "label": "검토 가능성" },
+      { "minScore": 85, "image": "/characters/default-avatar.svg", "label": "설득 직전" }
+    ],
     "age": 50,
     "occupation": "컴퓨터 네트워크 교수",
     "shortDescription": "공정성과 형평성을 중시하는 교수님에게 성적 재검토를 설득하는 과제",
@@ -94,6 +104,11 @@
     "id": "love-mt-walk",
     "name": "과 동기 썸 상대",
     "profileImage": "/characters/default-avatar.svg",
+    "imageStages": [
+      { "minScore": 0, "image": "/characters/default-avatar.svg", "label": "조심스러운 거리감" },
+      { "minScore": 60, "image": "/characters/default-avatar.svg", "label": "분위기 상승" },
+      { "minScore": 85, "image": "/characters/default-avatar.svg", "label": "관계 전환 직전" }
+    ],
     "age": 23,
     "occupation": "같은 과 동기",
     "shortDescription": "엠티 밤산책에서 설렘과 진정성의 균형을 맞춰 관계를 다음 단계로 이끄는 과제",
@@ -140,6 +155,11 @@
     "id": "refusal-cha-eunwoo",
     "name": "차은우",
     "profileImage": "/characters/default-avatar.svg",
+    "imageStages": [
+      { "minScore": 0, "image": "/characters/default-avatar.svg", "label": "부담스러운 요청" },
+      { "minScore": 60, "image": "/characters/default-avatar.svg", "label": "경계가 전달되는 중" },
+      { "minScore": 85, "image": "/characters/default-avatar.svg", "label": "단호한 거절 직전" }
+    ],
     "age": 27,
     "occupation": "배우 / 가수",
     "shortDescription": "세무 이슈로 200억 급전이 필요한 차은우의 부탁을 관계를 해치지 않으면서 단호히 거절하는 과제",

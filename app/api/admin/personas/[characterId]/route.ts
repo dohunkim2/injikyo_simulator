@@ -51,6 +51,10 @@ export async function PUT(
     return NextResponse.json({ error: "프리셋 이미지 경로만 사용할 수 있습니다." }, { status: 400 });
   }
 
+  if (parsed.data.imageStages?.some((stage) => !stage.image.startsWith("/characters/"))) {
+    return NextResponse.json({ error: "프리셋 이미지 경로만 사용할 수 있습니다." }, { status: 400 });
+  }
+
   const record = await upsertPersonaConfig(characterId, parsed.data);
   const persona = await getPersonaById(characterId);
 

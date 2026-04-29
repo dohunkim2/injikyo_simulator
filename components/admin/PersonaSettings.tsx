@@ -3,7 +3,13 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import type { AffectionRule, Character, CharacterConfig, EvaluationRubricItem } from "@/lib/types";
+import type {
+  AffectionRule,
+  Character,
+  CharacterConfig,
+  CharacterImageStage,
+  EvaluationRubricItem,
+} from "@/lib/types";
 
 type PersonasResponse = {
   personas: Character[];
@@ -18,6 +24,7 @@ function toConfig(persona: Character): CharacterConfig {
     id: persona.id,
     name: persona.name,
     profileImage: persona.profileImage,
+    imageStages: persona.imageStages,
     age: persona.age,
     occupation: persona.occupation,
     shortDescription: persona.shortDescription,
@@ -59,6 +66,7 @@ export function PersonaSettings() {
   const [likes, setLikes] = useState<AffectionRule[]>([]);
   const [dislikes, setDislikes] = useState<AffectionRule[]>([]);
   const [rubric, setRubric] = useState<EvaluationRubricItem[]>([]);
+  const [imageStages, setImageStages] = useState<CharacterImageStage[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -94,6 +102,7 @@ export function PersonaSettings() {
     setLikes(nextForm.likes);
     setDislikes(nextForm.dislikes);
     setRubric(nextForm.evaluationRubric ?? []);
+    setImageStages(nextForm.imageStages ?? []);
     setMessage("");
   }, [personas, selectedId]);
 
@@ -114,6 +123,7 @@ export function PersonaSettings() {
         likes,
         dislikes,
         evaluationRubric: rubric,
+        imageStages: imageStages.length > 0 ? imageStages : undefined,
       };
 
       const response = await fetch(`/api/admin/personas/${form.id}`, {
@@ -213,6 +223,13 @@ export function PersonaSettings() {
             ))}
           </div>
         </div>
+
+        <ImageStageEditor
+          stages={imageStages}
+          avatarOptions={avatarOptions}
+          fallbackImage={form.profileImage}
+          onChange={setImageStages}
+        />
 
         <Textarea label="짧은 설명" value={form.shortDescription} onChange={(value) => update("shortDescription", value)} />
         <Textarea label="상황" value={form.situation} onChange={(value) => update("situation", value)} />
@@ -316,6 +333,104 @@ function RuleEditor({
               >
                 삭제
               </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ImageStageEditor({
+  stages,
+  avatarOptions,
+  fallbackImage,
+  onChange,
+}: {
+  stages: CharacterImageStage[];
+  avatarOptions: string[];
+  fallbackImage: string;
+  onChange: (stages: CharacterImageStage[]) => void;
+}) {
+  const activeStages =
+    stages.length > 0
+      ? stages
+      : [
+          {
+            minScore: 0,
+            image: fallbackImage,
+            label: "기본 이미지",
+          },
+        ];
+
+  const updateStage = (index: number, next: CharacterImageStage) => {
+    onChange(activeStages.map((stage, stageIndex) => (stageIndex === index ? next : stage)));
+  };
+
+  return (
+    <section className="rounded-3xl bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">점수별 좌측 이미지</p>
+          <p className="mt-1 text-sm text-slate-500">
+            채팅 화면 왼쪽에 표시될 이미지를 점수 구간 기준으로 선택합니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            onChange([
+              ...activeStages,
+              { minScore: 50, image: avatarOptions[0] ?? fallbackImage, label: "새 이미지 구간" },
+            ])
+          }
+          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+        >
+          구간 추가
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {activeStages.map((stage, index) => (
+          <div key={`${stage.label}-${index}`} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+            <div className="grid gap-3 md:grid-cols-[110px_1fr_auto]">
+              <NumberField
+                label="최소 점수"
+                value={stage.minScore}
+                onChange={(value) => updateStage(index, { ...stage, minScore: value })}
+              />
+              <Field
+                label="상태 라벨"
+                value={stage.label}
+                onChange={(value) => updateStage(index, { ...stage, label: value })}
+              />
+              <button
+                type="button"
+                onClick={() => onChange(activeStages.filter((_, stageIndex) => stageIndex !== index))}
+                className="self-end rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
+              >
+                삭제
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {avatarOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => updateStage(index, { ...stage, image: option })}
+                  className={`rounded-2xl p-2 ring-2 ${
+                    stage.image === option ? "ring-slate-900" : "ring-transparent"
+                  }`}
+                >
+                  <Image
+                    src={option}
+                    alt={option}
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 rounded-xl bg-slate-100 object-cover"
+                  />
+                </button>
+              ))}
             </div>
           </div>
         ))}
