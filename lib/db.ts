@@ -20,6 +20,7 @@ type PostgresClient = ReturnType<typeof postgres>;
 
 const globalForPostgres = globalThis as unknown as {
   postgresClient?: PostgresClient;
+  schemaReady?: Promise<void>;
 };
 
 function getDatabaseUrl() {
@@ -91,6 +92,19 @@ export async function ensureTables() {
     throw new Error("POSTGRES_URL이 설정되지 않았습니다.");
   }
 
+  if (globalForPostgres.schemaReady) {
+    return globalForPostgres.schemaReady;
+  }
+
+  globalForPostgres.schemaReady = ensureTablesUncached().catch((error) => {
+    globalForPostgres.schemaReady = undefined;
+    throw error;
+  });
+
+  return globalForPostgres.schemaReady;
+}
+
+async function ensureTablesUncached() {
   await sql`
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
@@ -271,30 +285,83 @@ export async function completeSession(input: Omit<CompleteSessionInput, "message
 
 export async function saveCompletedSession(input: CompleteSessionInput) {
   await ensureTables();
+  await upsertPlayer(input.playerId, input.nickname);
 
-  const { runId } = input.runId
-    ? { runId: input.runId }
-    : await startSession({
-        playerId: input.playerId,
-        nickname: input.nickname,
-        characterId: input.characterId,
-        characterName: input.characterName,
-        currentAffection: input.finalAffection,
-      });
+  const runId = input.runId ?? randomUUID();
 
-  for (const [index, message] of input.messages.entries()) {
-    await appendSessionMessage({
-      runId,
+  await sql`
+    INSERT INTO conversation_runs (
+      id,
+      player_id,
+      character_id,
+      character_name,
+      success,
+      final_affection,
+      turns_used,
+      status,
+      current_affection,
+      completed_at,
+      last_message_at
+    )
+    VALUES (
+      ${runId},
+      ${input.playerId},
+      ${input.characterId},
+      ${input.characterName},
+      ${input.success},
+      ${input.finalAffection},
+      ${input.turnsUsed},
+      'completed',
+      ${input.finalAffection},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (id)
+    DO UPDATE SET
+      player_id = EXCLUDED.player_id,
+      character_id = EXCLUDED.character_id,
+      character_name = EXCLUDED.character_name,
+      success = EXCLUDED.success,
+      final_affection = EXCLUDED.final_affection,
+      turns_used = EXCLUDED.turns_used,
+      status = 'completed',
+      current_affection = EXCLUDED.current_affection,
+      completed_at = COALESCE(conversation_runs.completed_at, NOW()),
+      last_message_at = NOW()
+  `;
+
+  const serializedMessages = JSON.stringify(
+    input.messages.map((message, index) => ({
+      id: randomUUID(),
+      message_index: index,
       role: message.role,
       content: message.content,
-      timestamp: message.timestamp,
-      messageIndex: index,
-      currentAffection: input.finalAffection,
-      turnsUsed: input.turnsUsed,
-    });
-  }
+      sent_at: new Date(message.timestamp).toISOString(),
+    })),
+  );
 
-  await completeSession({ ...input, runId });
+  await sql`
+    INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
+    SELECT
+      item.id::uuid,
+      ${runId}::uuid,
+      item.role,
+      item.content,
+      item.sent_at::timestamptz,
+      item.message_index
+    FROM jsonb_to_recordset(${serializedMessages}::jsonb) AS item(
+      id text,
+      role text,
+      content text,
+      sent_at text,
+      message_index int
+    )
+    ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
+    DO UPDATE SET
+      role = EXCLUDED.role,
+      content = EXCLUDED.content,
+      sent_at = EXCLUDED.sent_at
+  `;
 
   return { runId };
 }
