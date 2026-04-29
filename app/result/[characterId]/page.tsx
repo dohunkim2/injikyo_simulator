@@ -117,6 +117,15 @@ export default function ResultPage() {
   return (
     <main className="min-h-screen bg-[#f4f7fb] px-4 py-8 text-slate-900">
       <div className="mx-auto max-w-2xl space-y-5">
+        <div className="flex justify-end">
+          <Link
+            href="/"
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200"
+          >
+            홈으로
+          </Link>
+        </div>
+
         <section
           className={`rounded-[2rem] p-6 text-white shadow-lg ${
             chatState.isSuccess ? "bg-emerald-500" : "bg-rose-500"
