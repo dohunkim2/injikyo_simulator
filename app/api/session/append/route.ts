@@ -11,6 +11,7 @@ const requestSchema = z.object({
   messageIndex: z.number().int().min(0),
   currentAffection: z.number().int().min(0).max(100),
   turnsUsed: z.number().int().min(0),
+  affectionChange: z.number().int().min(-30).max(30).optional(),
 });
 
 export async function POST(request: Request) {

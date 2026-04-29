@@ -222,6 +222,7 @@ function ChatScreen({ character }: { character: Character }) {
     messageIndex: number,
     currentAffection: number,
     turnsUsed: number,
+    affectionChange?: number,
   ) => {
     const runId = await ensureServerRun(currentAffection);
     if (!runId) return;
@@ -238,6 +239,7 @@ function ChatScreen({ character }: { character: Character }) {
           messageIndex,
           currentAffection,
           turnsUsed,
+          ...(affectionChange !== undefined ? { affectionChange } : {}),
         }),
       });
     } catch {
@@ -420,6 +422,7 @@ function ChatScreen({ character }: { character: Character }) {
         finalMessages.length - 1,
         nextState.affection,
         nextState.turnCount,
+        payload.status.change,
       );
 
       if (payload.status.gameOver) {

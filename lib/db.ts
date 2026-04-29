@@ -88,6 +88,7 @@ export type AppendSessionMessageInput = {
   messageIndex: number;
   currentAffection: number;
   turnsUsed: number;
+  affectionChange?: number | null;
 };
 
 export function isDatabaseConfigured() {
@@ -150,6 +151,7 @@ async function ensureTablesUncached() {
   `;
 
   await sql`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS message_index INTEGER`;
+  await sql`ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS affection_change INTEGER`;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS conversation_messages_run_index_key
     ON conversation_messages (run_id, message_index)
@@ -245,22 +247,26 @@ export async function appendSessionMessage(input: AppendSessionMessageInput) {
   const sentAt = new Date(input.timestamp).toISOString();
   const messageId = randomUUID();
 
+  const affectionChange = input.affectionChange ?? null;
+
   await getSqlClient().begin(async (tx: PostgresTx) => {
     await tx`
-      INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
+      INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index, affection_change)
       VALUES (
         ${messageId},
         ${input.runId},
         ${input.role},
         ${input.content},
         ${sentAt},
-        ${input.messageIndex}
+        ${input.messageIndex},
+        ${affectionChange}
       )
       ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
       DO UPDATE SET
         role = EXCLUDED.role,
         content = EXCLUDED.content,
-        sent_at = EXCLUDED.sent_at
+        sent_at = EXCLUDED.sent_at,
+        affection_change = EXCLUDED.affection_change
     `;
 
     await tx`
@@ -433,8 +439,9 @@ export async function getActiveSessionForPlayer(
     content: string;
     sent_at: string;
     message_index: number | null;
+    affection_change: number | null;
   }>`
-    SELECT id::text, role, content, sent_at::text, message_index
+    SELECT id::text, role, content, sent_at::text, message_index, affection_change
     FROM conversation_messages
     WHERE run_id = ${row.id}
     ORDER BY COALESCE(message_index, 2147483647), sent_at ASC
@@ -451,6 +458,7 @@ export async function getActiveSessionForPlayer(
       content: message.content,
       timestamp: new Date(message.sent_at).getTime(),
       messageIndex: message.message_index ?? index,
+      affectionChange: message.affection_change,
     })),
   };
 }
@@ -649,13 +657,15 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
     content: string;
     sent_at: string;
     message_index: number | null;
+    affection_change: number | null;
   }>`
     SELECT
       id::text,
       role,
       content,
       sent_at::text,
-      message_index
+      message_index,
+      affection_change
     FROM conversation_messages
     WHERE run_id = ${runId}
     ORDER BY COALESCE(message_index, 2147483647), sent_at ASC
@@ -669,6 +679,7 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
       content: message.content,
       timestamp: new Date(message.sent_at).getTime(),
       messageIndex: message.message_index ?? index,
+      affectionChange: message.affection_change,
     })),
   };
 }

@@ -61,6 +61,7 @@ export interface Message {
 export interface StoredMessage extends Message {
   id?: string;
   messageIndex: number;
+  affectionChange?: number | null;
 }
 
 export interface AIStatusPayload {

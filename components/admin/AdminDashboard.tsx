@@ -341,24 +341,41 @@ export function AdminDashboard() {
                 </div>
 
                 <div className="max-h-[68vh] space-y-3 overflow-y-auto rounded-3xl bg-[#B2C7D9] p-4">
-                  {detail.messages.map((message) => (
-                    <div
-                      key={`${message.messageIndex}-${message.timestamp}`}
-                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
+                  {detail.messages.map((message) => {
+                    const change = message.affectionChange;
+                    const hasChange = typeof change === "number";
+                    const changeTone =
+                      change !== null && change !== undefined && change > 0
+                        ? "bg-pink-100 text-pink-700"
+                        : change !== null && change !== undefined && change < 0
+                          ? "bg-indigo-100 text-indigo-700"
+                          : "bg-slate-100 text-slate-500";
+                    return (
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${
-                          message.role === "user" ? "bg-[#FEE500]" : "bg-white"
-                        }`}
+                        key={`${message.messageIndex}-${message.timestamp}`}
+                        className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="mb-1 text-[11px] font-semibold text-slate-400">
-                          {message.role === "user" ? "사용자" : detail.characterName}
-                        </p>
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <p className="mt-1 text-right text-[11px] text-slate-400">{formatTime(message.timestamp)}</p>
+                        <div
+                          className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${
+                            message.role === "user" ? "bg-[#FEE500]" : "bg-white"
+                          }`}
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-semibold text-slate-400">
+                              {message.role === "user" ? "사용자" : detail.characterName}
+                            </p>
+                            {hasChange ? (
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${changeTone}`}>
+                                {change > 0 ? `+${change}` : change}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <p className="mt-1 text-right text-[11px] text-slate-400">{formatTime(message.timestamp)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
