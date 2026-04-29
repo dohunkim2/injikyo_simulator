@@ -32,13 +32,9 @@ type ChatApiResponse = {
   status: StatusUpdate;
 };
 
-type SessionStartResponse = SessionSaveStatus;
-
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
-
-const SESSION_SYNC_TIMEOUT_MS = 1500;
 
 export default function ChatPage() {
   const params = useParams<{ characterId: string }>();
@@ -177,63 +173,6 @@ function ChatScreen({ character }: { character: Character }) {
     }
   };
 
-  const ensureServerRunId = async (state: ChatState) => {
-    if (state.serverRunId) {
-      return state.serverRunId;
-    }
-
-    const playerProfile = storage.getOrCreatePlayerProfile();
-    const response = await fetch("/api/session/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(SESSION_SYNC_TIMEOUT_MS),
-      body: JSON.stringify({
-        playerId: playerProfile.playerId,
-        nickname: playerProfile.nickname,
-        characterId: character.id,
-        characterName: character.name,
-        currentAffection: state.affection,
-      }),
-    }).catch(() => null);
-
-    if (!response) {
-      return undefined;
-    }
-
-    const payload = (await response.json().catch(() => null)) as SessionStartResponse | null;
-
-    if (!response.ok || !payload?.synced || !payload.runId) {
-      return undefined;
-    }
-
-    return payload.runId;
-  };
-
-  const appendServerMessage = async (args: {
-    runId?: string;
-    message: Message;
-    messageIndex: number;
-    currentAffection: number;
-    turnsUsed: number;
-  }) => {
-    if (!args.runId) return;
-
-    await fetch("/api/session/append", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(SESSION_SYNC_TIMEOUT_MS),
-      body: JSON.stringify({
-        runId: args.runId,
-        role: args.message.role,
-        content: args.message.content,
-        timestamp: args.message.timestamp,
-        messageIndex: args.messageIndex,
-        currentAffection: args.currentAffection,
-        turnsUsed: args.turnsUsed,
-      }),
-    }).catch(() => null);
-  };
-
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || typing || chatState.isGameOver) return;
@@ -251,22 +190,11 @@ function ChatScreen({ character }: { character: Character }) {
     const nextMessages = [...previousMessages, userMessage];
     setChatState((current) => (current ? { ...current, messages: nextMessages } : current));
     setInput("");
-    let activeRunId = chatState.serverRunId;
 
     try {
-      const runId = await ensureServerRunId(chatState);
-      activeRunId = runId;
-      const pendingState = { ...chatState, serverRunId: runId, messages: nextMessages };
+      const pendingState = { ...chatState, messages: nextMessages };
       setChatState(pendingState);
       storage.saveChatState(character.id, pendingState);
-
-      void appendServerMessage({
-        runId,
-        message: userMessage,
-        messageIndex: previousMessages.length,
-        currentAffection: chatState.affection,
-        turnsUsed: chatState.turnCount,
-      });
 
       const requestStartedAt = Date.now();
       const response = await fetch("/api/chat", {
@@ -302,7 +230,6 @@ function ChatScreen({ character }: { character: Character }) {
       const finalMessages = [...nextMessages, assistantMessage];
       const nextState: ChatState = {
         ...chatState,
-        serverRunId: runId,
         messages: finalMessages,
         affection: payload.status.affection,
         turnCount: chatState.turnCount + 1,
@@ -315,13 +242,6 @@ function ChatScreen({ character }: { character: Character }) {
 
       setChatState(nextState);
       storage.saveChatState(character.id, nextState);
-      void appendServerMessage({
-        runId,
-        message: assistantMessage,
-        messageIndex: nextMessages.length,
-        currentAffection: nextState.affection,
-        turnsUsed: nextState.turnCount,
-      });
       setToastValue(payload.status.change);
 
       if (payload.status.gameOver) {
@@ -330,7 +250,7 @@ function ChatScreen({ character }: { character: Character }) {
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "메시지 전송에 실패했습니다.");
-      const restoredState = { ...chatState, serverRunId: activeRunId, messages: previousMessages };
+      const restoredState = { ...chatState, messages: previousMessages };
       setChatState(restoredState);
       storage.saveChatState(character.id, restoredState);
     } finally {
