@@ -5,6 +5,7 @@ import type {
   AdminSessionDetail,
   AdminSessionSummary,
   CharacterConfig,
+  CharacterFeedback,
   LeaderboardEntry,
   Message,
   PersonaConfigRecord,
@@ -139,6 +140,7 @@ async function ensureTablesUncached() {
   await sql`ALTER TABLE conversation_runs ADD COLUMN IF NOT EXISTS current_affection INTEGER NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE conversation_runs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`;
   await sql`ALTER TABLE conversation_runs ADD COLUMN IF NOT EXISTS last_message_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
+  await sql`ALTER TABLE conversation_runs ADD COLUMN IF NOT EXISTS feedback JSONB`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS conversation_messages (
@@ -621,6 +623,7 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
     started_at: string;
     completed_at: string | null;
     last_message_at: string;
+    feedback: CharacterFeedback | null;
   }>`
     SELECT
       r.id::text AS run_id,
@@ -636,7 +639,8 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
       COUNT(m.id)::int AS message_count,
       r.created_at::text AS started_at,
       r.completed_at::text AS completed_at,
-      r.last_message_at::text AS last_message_at
+      r.last_message_at::text AS last_message_at,
+      r.feedback AS feedback
     FROM conversation_runs r
     JOIN players p ON p.id = r.player_id
     LEFT JOIN conversation_messages m ON m.run_id = r.id
@@ -673,6 +677,7 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
 
   return {
     ...mapSessionSummary(summary),
+    feedback: summary.feedback,
     messages: messagesResult.rows.map((message, index) => ({
       id: message.id,
       role: message.role,
@@ -682,6 +687,16 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
       affectionChange: message.affection_change,
     })),
   };
+}
+
+export async function saveFeedbackForRun(runId: string, feedback: CharacterFeedback) {
+  await ensureTables();
+
+  await sql`
+    UPDATE conversation_runs
+    SET feedback = ${JSON.stringify(feedback)}::jsonb
+    WHERE id = ${runId}
+  `;
 }
 
 export async function clearAdminConversationLogs() {

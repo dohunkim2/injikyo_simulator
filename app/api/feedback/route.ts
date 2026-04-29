@@ -3,6 +3,7 @@ import * as z from "zod";
 
 import { openRouterChat } from "@/lib/api";
 import { GAME } from "@/lib/constants";
+import { isDatabaseConfigured, saveFeedbackForRun } from "@/lib/db";
 import { getPersonaById } from "@/lib/personas";
 import type { Character, CharacterFeedback, Message, RubricFeedbackItem } from "@/lib/types";
 
@@ -12,6 +13,7 @@ type FeedbackMessages = Parameters<typeof openRouterChat>[0]["messages"];
 
 const requestSchema = z.object({
   characterId: z.string().min(1),
+  runId: z.string().uuid().optional(),
   messages: z.array(
     z.object({
       role: z.union([z.literal("user"), z.literal("assistant")]),
@@ -326,7 +328,17 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
           }),
     };
 
-    return NextResponse.json(normalizeFeedback({ parsed, body, character: activeCharacter }));
+    const finalFeedback = normalizeFeedback({ parsed, body, character: activeCharacter });
+
+    if (body.runId && isDatabaseConfigured()) {
+      try {
+        await saveFeedbackForRun(body.runId, finalFeedback);
+      } catch (saveError) {
+        console.error("Failed to persist judge feedback for run", body.runId, saveError);
+      }
+    }
+
+    return NextResponse.json(finalFeedback);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "잘못된 요청 형식입니다." }, { status: 400 });

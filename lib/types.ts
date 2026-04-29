@@ -153,6 +153,7 @@ export interface AdminSessionSummary {
 
 export interface AdminSessionDetail extends AdminSessionSummary {
   messages: StoredMessage[];
+  feedback?: CharacterFeedback | null;
 }
 
 export interface PersonaConfigRecord {

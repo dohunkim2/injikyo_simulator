@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { AdminSessionDetail, AdminSessionSummary } from "@/lib/types";
+import type { AdminSessionDetail, AdminSessionSummary, RubricFeedbackItem } from "@/lib/types";
 
 type SessionsResponse = {
   configured: boolean;
@@ -340,6 +340,8 @@ export function AdminDashboard() {
                   </div>
                 </div>
 
+                {detail.feedback ? <InBodyReport feedback={detail.feedback} /> : null}
+
                 <div className="max-h-[68vh] space-y-3 overflow-y-auto rounded-3xl bg-[#B2C7D9] p-4">
                   {detail.messages.map((message) => {
                     const change = message.affectionChange;
@@ -384,5 +386,96 @@ export function AdminDashboard() {
           </div>
       </div>
     </main>
+  );
+}
+
+function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["feedback"]> }) {
+  const total = feedback.totalRubricScore ?? 0;
+  const max = feedback.maxRubricScore ?? 0;
+  const ratio = max > 0 ? Math.round((total / max) * 100) : 0;
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Conversation InBody</p>
+          <p className="mt-1 font-bold text-slate-900">{feedback.summary || "저지 평가 결과"}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-black leading-none text-slate-900">{feedback.grade ?? "-"}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {total}/{max} ({ratio}%)
+          </p>
+        </div>
+      </div>
+
+      {feedback.judgeComment ? (
+        <p className="mt-3 rounded-2xl bg-cyan-50 px-3 py-2 text-xs leading-5 text-cyan-900">
+          <b>Judge </b>
+          {feedback.judgeComment}
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-semibold text-slate-400">Best Line</p>
+          <p className="mt-1 text-xs leading-5 text-slate-700">{feedback.bestLine || "기록 없음"}</p>
+        </div>
+        <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
+          <p className="text-[11px] font-semibold text-slate-400">Worst Line</p>
+          <p className="mt-1 text-xs leading-5 text-slate-700">{feedback.worstLine || "기록 없음"}</p>
+        </div>
+      </div>
+
+      {feedback.rubricScores && feedback.rubricScores.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {feedback.rubricScores.map((item) => (
+            <RubricRow key={item.label} item={item} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {feedback.strengths && feedback.strengths.length > 0 ? (
+          <div className="rounded-2xl bg-emerald-50 px-3 py-2">
+            <p className="text-[11px] font-semibold text-emerald-700">강점</p>
+            <ul className="mt-1 space-y-0.5 text-xs leading-5 text-emerald-900">
+              {feedback.strengths.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {feedback.improvements && feedback.improvements.length > 0 ? (
+          <div className="rounded-2xl bg-amber-50 px-3 py-2">
+            <p className="text-[11px] font-semibold text-amber-700">개선 포인트</p>
+            <ul className="mt-1 space-y-0.5 text-xs leading-5 text-amber-900">
+              {feedback.improvements.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function RubricRow({ item }: { item: RubricFeedbackItem }) {
+  const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
+  return (
+    <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-slate-900">{item.label}</p>
+        <p className="shrink-0 text-xs font-black text-slate-900">
+          {item.score}
+          <span className="text-slate-400">/{item.points}</span>
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-600" style={{ width: `${ratio}%` }} />
+      </div>
+      {item.evidence ? <p className="mt-2 text-[11px] leading-4 text-slate-500">{item.evidence}</p> : null}
+    </div>
   );
 }

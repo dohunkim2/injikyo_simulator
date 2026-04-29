@@ -61,6 +61,7 @@ export default function ResultPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             characterId: character.id,
+            runId: record.chatState.serverRunId,
             messages: record.chatState.messages,
             success: record.chatState.isSuccess,
             finalAffection: record.chatState.affection,
