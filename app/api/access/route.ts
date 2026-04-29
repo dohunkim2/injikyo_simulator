@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-const chatKeywordEnvByCharacterId: Record<string, string | undefined> = {
-  "reconciliation-swings": process.env.CHAT_ACCESS_KEYWORD_SWINGS,
-  "persuasion-professor-ahn": process.env.CHAT_ACCESS_KEYWORD_COMEDU,
-  "love-mt-walk": process.env.CHAT_ACCESS_KEYWORD_DUGEUN,
-  "refusal-cha-eunwoo": process.env.CHAT_ACCESS_KEYWORD_CHA_EUNWOO,
+const chatKeywordByCharacterId: Record<string, string> = {
+  "reconciliation-swings": "스윙스",
+  "persuasion-professor-ahn": "컴에듀",
+  "love-mt-walk": "두근두근",
+  "refusal-cha-eunwoo": "차은우",
 };
+
+const resetKeyword = "미안합니다";
 
 const requestSchema = z.discriminatedUnion("type", [
   z.object({
@@ -26,8 +28,8 @@ export async function POST(request: Request) {
 
     const expected =
       body.type === "chat"
-        ? chatKeywordEnvByCharacterId[body.characterId]
-        : process.env.RESET_ACCESS_KEYWORD;
+        ? chatKeywordByCharacterId[body.characterId]
+        : resetKeyword;
 
     if (!expected) {
       return NextResponse.json({ error: "비밀 키워드가 설정되지 않았습니다." }, { status: 500 });
