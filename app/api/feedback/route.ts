@@ -213,6 +213,7 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
       ],
       max_tokens: GAME.FEEDBACK_MAX_TOKENS,
       temperature: 0.6,
+      timeoutMs: GAME.FEEDBACK_TIMEOUT_MS,
     });
 
     const jsonBlock = extractJsonBlock(raw);

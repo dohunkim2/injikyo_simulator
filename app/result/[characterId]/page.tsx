@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { LeaderboardPanel } from "@/components/game/LeaderboardPanel";
 import { getCharacterById } from "@/lib/characters";
@@ -46,12 +46,12 @@ export default function ResultPage() {
     return saved?.characters[character.id];
   }, [character, saved]);
 
-  useEffect(() => {
-    if (!character || !record?.chatState?.isGameOver || record.feedback || feedbackLoading || feedbackError) {
-      return;
-    }
+  const requestFeedback = useCallback(
+    async (force = false) => {
+      if (!character || !record?.chatState?.isGameOver || (record.feedback && !force) || feedbackLoading) {
+        return;
+      }
 
-    const generateFeedback = async () => {
       setFeedbackLoading(true);
       setFeedbackError("");
 
@@ -81,10 +81,17 @@ export default function ResultPage() {
       } finally {
         setFeedbackLoading(false);
       }
-    };
+    },
+    [character, feedbackLoading, record],
+  );
 
-    void generateFeedback();
-  }, [character, record, feedbackLoading, feedbackError]);
+  useEffect(() => {
+    if (!character || !record?.chatState?.isGameOver || record.feedback || feedbackLoading || feedbackError) {
+      return;
+    }
+
+    void requestFeedback();
+  }, [character, record, feedbackLoading, feedbackError, requestFeedback]);
   
 
   if (!hydrated) {
@@ -181,6 +188,16 @@ export default function ResultPage() {
               <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {feedbackError}
               </div>
+            ) : null}
+            {!feedback ? (
+              <button
+                type="button"
+                disabled={feedbackLoading}
+                onClick={() => void requestFeedback(true)}
+                className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {feedbackLoading ? "저지 모델 재요청 중" : "피드백 재요청"}
+              </button>
             ) : null}
           </div>
 

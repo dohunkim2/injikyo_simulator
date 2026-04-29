@@ -9,6 +9,7 @@ type OpenRouterPayload = {
   temperature?: number;
   max_tokens?: number;
   response_format?: unknown;
+  timeoutMs?: number;
 };
 
 type OpenRouterResponse = {
@@ -27,6 +28,7 @@ import { GAME } from "./constants";
 
 export async function openRouterChat(payload: OpenRouterPayload): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
+  const { timeoutMs, ...openRouterPayload } = payload;
 
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY가 설정되지 않았습니다.");
@@ -40,9 +42,9 @@ export async function openRouterChat(payload: OpenRouterPayload): Promise<string
       "HTTP-Referer": process.env.APP_URL ?? "https://vercel.app",
       "X-Title": "dating-sim",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(openRouterPayload),
     cache: "no-store",
-    signal: AbortSignal.timeout(GAME.OPENROUTER_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs ?? GAME.OPENROUTER_TIMEOUT_MS),
   }).catch((error) => {
     if (error instanceof DOMException && error.name === "TimeoutError") {
       throw new Error("AI 응답 시간이 초과되었습니다.");

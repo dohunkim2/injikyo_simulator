@@ -14,10 +14,11 @@ export const GAME = {
   MAX_STORED_MESSAGE_CHARS: 6000,
   MAX_MESSAGES_PER_REQUEST: 40,
   OPENROUTER_TIMEOUT_MS: 45_000,
+  FEEDBACK_TIMEOUT_MS: 23_000,
   CHAT_MODEL_FALLBACK: "deepseek/deepseek-v4-flash",
   CHAT_MODEL_BACKUP: "openai/gpt-4o-mini",
   FEEDBACK_MODEL: "deepseek/deepseek-v4-flash",
-  FEEDBACK_MAX_TOKENS: 9000,
+  FEEDBACK_MAX_TOKENS: 6000,
   ANALYSIS_MODEL: "deepseek/deepseek-v4-flash",
 } as const;
 
