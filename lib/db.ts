@@ -10,6 +10,7 @@ import type {
   PersonaConfigRecord,
   Role,
   SessionStatus,
+  StoredMessage,
 } from "./types";
 
 type QueryResult<T extends postgres.Row> = {
@@ -17,6 +18,7 @@ type QueryResult<T extends postgres.Row> = {
 };
 
 type PostgresClient = ReturnType<typeof postgres>;
+type PostgresTx = Parameters<Parameters<PostgresClient["begin"]>[0]>[0];
 
 const globalForPostgres = globalThis as unknown as {
   postgresClient?: PostgresClient;
@@ -35,10 +37,14 @@ function getSqlClient() {
   }
 
   if (!globalForPostgres.postgresClient) {
+    const isLocal = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
     globalForPostgres.postgresClient = postgres(databaseUrl, {
-      max: 1,
+      max: 5,
+      idle_timeout: 30,
+      connect_timeout: 10,
+      max_lifetime: 60 * 30,
       prepare: false,
-      ssl: databaseUrl.includes("localhost") ? false : "require",
+      ssl: isLocal ? false : "require",
     });
   }
 
@@ -66,6 +72,7 @@ export type CompleteSessionInput = {
 };
 
 export type StartSessionInput = {
+  runId?: string;
   playerId: string;
   nickname: string;
   characterId: string;
@@ -153,6 +160,10 @@ async function ensureTablesUncached() {
     ON conversation_runs (last_message_at DESC)
   `;
   await sql`
+    CREATE INDEX IF NOT EXISTS conversation_runs_player_character_idx
+    ON conversation_runs (player_id, character_id, last_message_at DESC)
+  `;
+  await sql`
     CREATE INDEX IF NOT EXISTS conversation_messages_run_sent_idx
     ON conversation_messages (run_id, sent_at ASC)
   `;
@@ -178,7 +189,22 @@ async function upsertPlayer(playerId: string, nickname: string) {
 export async function startSession(input: StartSessionInput) {
   await ensureTables();
   await upsertPlayer(input.playerId, input.nickname);
-  const newRunId = randomUUID();
+
+  if (input.runId) {
+    const existing = await sql<{ id: string; player_id: string; character_id: string }>`
+      SELECT id::text, player_id, character_id
+      FROM conversation_runs
+      WHERE id = ${input.runId}
+      LIMIT 1
+    `;
+
+    const row = existing.rows[0];
+    if (row && row.player_id === input.playerId && row.character_id === input.characterId) {
+      return { runId: row.id };
+    }
+  }
+
+  const newRunId = input.runId ?? randomUUID();
 
   const runResult = await sql<{ id: string }>`
     INSERT INTO conversation_runs (
@@ -205,15 +231,11 @@ export async function startSession(input: StartSessionInput) {
       ${input.currentAffection},
       NOW()
     )
-    RETURNING id
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id::text
   `;
 
-  const runId = runResult.rows[0]?.id;
-
-  if (!runId) {
-    throw new Error("저장된 세션 ID를 찾을 수 없습니다.");
-  }
-
+  const runId = runResult.rows[0]?.id ?? newRunId;
   return { runId };
 }
 
@@ -221,32 +243,35 @@ export async function appendSessionMessage(input: AppendSessionMessageInput) {
   await ensureTables();
 
   const sentAt = new Date(input.timestamp).toISOString();
+  const messageId = randomUUID();
 
-  await sql`
-    INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
-    VALUES (
-      ${randomUUID()},
-      ${input.runId},
-      ${input.role},
-      ${input.content},
-      ${sentAt},
-      ${input.messageIndex}
-    )
-    ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
-    DO UPDATE SET
-      role = EXCLUDED.role,
-      content = EXCLUDED.content,
-      sent_at = EXCLUDED.sent_at
-  `;
+  await getSqlClient().begin(async (tx: PostgresTx) => {
+    await tx`
+      INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
+      VALUES (
+        ${messageId},
+        ${input.runId},
+        ${input.role},
+        ${input.content},
+        ${sentAt},
+        ${input.messageIndex}
+      )
+      ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
+      DO UPDATE SET
+        role = EXCLUDED.role,
+        content = EXCLUDED.content,
+        sent_at = EXCLUDED.sent_at
+    `;
 
-  await sql`
-    UPDATE conversation_runs
-    SET current_affection = ${input.currentAffection},
-        final_affection = ${input.currentAffection},
-        turns_used = ${input.turnsUsed},
-        last_message_at = GREATEST(last_message_at, ${sentAt}::timestamptz)
-    WHERE id = ${input.runId}
-  `;
+    await tx`
+      UPDATE conversation_runs
+      SET current_affection = ${input.currentAffection},
+          final_affection = ${input.currentAffection},
+          turns_used = ${input.turnsUsed},
+          last_message_at = GREATEST(last_message_at, ${sentAt}::timestamptz)
+      WHERE id = ${input.runId}
+    `;
+  });
 }
 
 export async function completeSession(input: Omit<CompleteSessionInput, "messages">) {
@@ -289,81 +314,145 @@ export async function saveCompletedSession(input: CompleteSessionInput) {
 
   const runId = input.runId ?? randomUUID();
 
-  await sql`
-    INSERT INTO conversation_runs (
-      id,
-      player_id,
-      character_id,
-      character_name,
-      success,
-      final_affection,
-      turns_used,
-      status,
-      current_affection,
-      completed_at,
-      last_message_at
-    )
-    VALUES (
-      ${runId},
-      ${input.playerId},
-      ${input.characterId},
-      ${input.characterName},
-      ${input.success},
-      ${input.finalAffection},
-      ${input.turnsUsed},
-      'completed',
-      ${input.finalAffection},
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT (id)
-    DO UPDATE SET
-      player_id = EXCLUDED.player_id,
-      character_id = EXCLUDED.character_id,
-      character_name = EXCLUDED.character_name,
-      success = EXCLUDED.success,
-      final_affection = EXCLUDED.final_affection,
-      turns_used = EXCLUDED.turns_used,
-      status = 'completed',
-      current_affection = EXCLUDED.current_affection,
-      completed_at = COALESCE(conversation_runs.completed_at, NOW()),
-      last_message_at = NOW()
-  `;
+  await getSqlClient().begin(async (tx: PostgresTx) => {
+    await tx`
+      INSERT INTO conversation_runs (
+        id,
+        player_id,
+        character_id,
+        character_name,
+        success,
+        final_affection,
+        turns_used,
+        status,
+        current_affection,
+        completed_at,
+        last_message_at
+      )
+      VALUES (
+        ${runId},
+        ${input.playerId},
+        ${input.characterId},
+        ${input.characterName},
+        ${input.success},
+        ${input.finalAffection},
+        ${input.turnsUsed},
+        'completed',
+        ${input.finalAffection},
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (id)
+      DO UPDATE SET
+        player_id = EXCLUDED.player_id,
+        character_id = EXCLUDED.character_id,
+        character_name = EXCLUDED.character_name,
+        success = EXCLUDED.success,
+        final_affection = EXCLUDED.final_affection,
+        turns_used = EXCLUDED.turns_used,
+        status = 'completed',
+        current_affection = EXCLUDED.current_affection,
+        completed_at = COALESCE(conversation_runs.completed_at, NOW()),
+        last_message_at = NOW()
+    `;
 
-  const serializedMessages = JSON.stringify(
-    input.messages.map((message, index) => ({
-      id: randomUUID(),
-      message_index: index,
-      role: message.role,
-      content: message.content,
-      sent_at: new Date(message.timestamp).toISOString(),
-    })),
-  );
+    if (input.messages.length > 0) {
+      const serializedMessages = JSON.stringify(
+        input.messages.map((message, index) => ({
+          id: randomUUID(),
+          message_index: index,
+          role: message.role,
+          content: message.content,
+          sent_at: new Date(message.timestamp).toISOString(),
+        })),
+      );
 
-  await sql`
-    INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
-    SELECT
-      item.id::uuid,
-      ${runId}::uuid,
-      item.role,
-      item.content,
-      item.sent_at::timestamptz,
-      item.message_index
-    FROM jsonb_to_recordset(${serializedMessages}::jsonb) AS item(
-      id text,
-      role text,
-      content text,
-      sent_at text,
-      message_index int
-    )
-    ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
-    DO UPDATE SET
-      role = EXCLUDED.role,
-      content = EXCLUDED.content,
-      sent_at = EXCLUDED.sent_at
-  `;
+      await tx`
+        INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
+        SELECT
+          item.id::uuid,
+          ${runId}::uuid,
+          item.role,
+          item.content,
+          item.sent_at::timestamptz,
+          item.message_index
+        FROM jsonb_to_recordset(${serializedMessages}::jsonb) AS item(
+          id text,
+          role text,
+          content text,
+          sent_at text,
+          message_index int
+        )
+        ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
+        DO UPDATE SET
+          role = EXCLUDED.role,
+          content = EXCLUDED.content,
+          sent_at = EXCLUDED.sent_at
+      `;
+    }
+  });
 
   return { runId };
+}
+
+export type ActiveSessionRecord = {
+  runId: string;
+  status: SessionStatus;
+  currentAffection: number;
+  turnsUsed: number;
+  messages: StoredMessage[];
+};
+
+export async function getActiveSessionForPlayer(
+  playerId: string,
+  characterId: string,
+): Promise<ActiveSessionRecord | null> {
+  await ensureTables();
+
+  const runResult = await sql<{
+    id: string;
+    status: string;
+    current_affection: number;
+    turns_used: number;
+  }>`
+    SELECT id::text, status, current_affection, turns_used
+    FROM conversation_runs
+    WHERE player_id = ${playerId}
+      AND character_id = ${characterId}
+      AND status = 'in_progress'
+    ORDER BY last_message_at DESC
+    LIMIT 1
+  `;
+
+  const row = runResult.rows[0];
+  if (!row) return null;
+
+  const messagesResult = await sql<{
+    id: string;
+    role: Role;
+    content: string;
+    sent_at: string;
+    message_index: number | null;
+  }>`
+    SELECT id::text, role, content, sent_at::text, message_index
+    FROM conversation_messages
+    WHERE run_id = ${row.id}
+    ORDER BY COALESCE(message_index, 2147483647), sent_at ASC
+  `;
+
+  return {
+    runId: row.id,
+    status: toSessionStatus(row.status),
+    currentAffection: row.current_affection,
+    turnsUsed: row.turns_used,
+    messages: messagesResult.rows.map((message, index) => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      timestamp: new Date(message.sent_at).getTime(),
+      messageIndex: message.message_index ?? index,
+    })),
+  };
 }
 
 export async function getLeaderboard(limit?: number): Promise<LeaderboardEntry[]> {
@@ -587,16 +676,17 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
 export async function clearAdminConversationLogs() {
   await ensureTables();
 
-  const countResult = await sql<{ count: number }>`
-    SELECT COUNT(*)::int AS count
-    FROM conversation_runs
+  const countResult = await sql<{ runs: number; players: number }>`
+    SELECT
+      (SELECT COUNT(*)::int FROM conversation_runs) AS runs,
+      (SELECT COUNT(*)::int FROM players) AS players
   `;
-  const deletedRuns = countResult.rows[0]?.count ?? 0;
+  const deletedRuns = countResult.rows[0]?.runs ?? 0;
+  const deletedPlayers = countResult.rows[0]?.players ?? 0;
 
-  await sql`DELETE FROM conversation_messages`;
-  await sql`DELETE FROM conversation_runs`;
+  await sql`TRUNCATE TABLE conversation_messages, conversation_runs, players RESTART IDENTITY CASCADE`;
 
-  return { deletedRuns };
+  return { deletedRuns, deletedPlayers };
 }
 
 export async function getPersonaConfigOverrides(): Promise<PersonaConfigRecord[]> {
@@ -646,15 +736,3 @@ export async function getPersonaConfigOverride(characterId: string): Promise<Per
   };
 }
 
-export async function upsertPersonaConfig(characterId: string, config: CharacterConfig) {
-  await ensureTables();
-
-  await sql`
-    INSERT INTO persona_configs (character_id, config, updated_at)
-    VALUES (${characterId}, ${JSON.stringify(config)}::jsonb, NOW())
-    ON CONFLICT (character_id)
-    DO UPDATE SET config = EXCLUDED.config, updated_at = NOW()
-  `;
-
-  return getPersonaConfigOverride(characterId);
-}

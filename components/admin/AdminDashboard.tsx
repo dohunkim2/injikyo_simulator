@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { PersonaSettings } from "@/components/admin/PersonaSettings";
 import type { AdminSessionDetail, AdminSessionSummary } from "@/lib/types";
 
 type SessionsResponse = {
@@ -43,7 +42,6 @@ function shortId(value: string) {
 }
 
 export function AdminDashboard() {
-  const [tab, setTab] = useState<"monitor" | "settings">("monitor");
   const [sessions, setSessions] = useState<AdminSessionSummary[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -152,7 +150,7 @@ export function AdminDashboard() {
     if (clearing) return;
 
     const confirmed = window.confirm(
-      "모든 유저 대화 로그와 랭킹 기록을 삭제할까요? 페르소나 설정은 유지됩니다.",
+      "모든 유저, 대화 로그, 랭킹 기록을 완전히 삭제할까요?",
     );
 
     if (!confirmed) return;
@@ -165,6 +163,7 @@ export function AdminDashboard() {
       const payload = (await response.json().catch(() => null)) as {
         ok?: boolean;
         deletedRuns?: number;
+        deletedPlayers?: number;
         error?: string;
       } | null;
 
@@ -181,7 +180,9 @@ export function AdminDashboard() {
       setSelectedCharacterId(null);
       setSelectedRunId(null);
       setDetail(null);
-      setMessage(`대화 로그 ${payload.deletedRuns ?? 0}건을 삭제했습니다.`);
+      setMessage(
+        `대화 로그 ${payload.deletedRuns ?? 0}건과 유저 ${payload.deletedPlayers ?? 0}명의 기록을 모두 삭제했습니다.`,
+      );
       await loadSessions();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "로그 삭제에 실패했습니다.");
@@ -211,42 +212,20 @@ export function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-black/5">
-          <button
-            onClick={() => setTab("monitor")}
-            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${
-              tab === "monitor" ? "bg-slate-900 text-white" : "text-slate-600"
-            }`}
-          >
-            모니터링
-          </button>
-          <button
-            onClick={() => setTab("settings")}
-            className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${
-              tab === "settings" ? "bg-slate-900 text-white" : "text-slate-600"
-            }`}
-          >
-            페르소나 설정
-          </button>
-        </div>
-
         {message ? <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{message}</div> : null}
 
-        {tab === "settings" ? <PersonaSettings /> : null}
-
-        {tab === "monitor" ? (
-          <div className="space-y-4">
+        <div className="space-y-4">
             <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <div>
                 <p className="font-semibold text-slate-900">관리자 로그 관리</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  테스트/발표 전 서버에 저장된 대화 로그와 랭킹 기록을 모두 비웁니다.
+                  테스트/발표 전 서버에 저장된 유저, 대화 로그, 랭킹 기록을 전부 초기화합니다.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleClearLogs}
-                disabled={clearing || sessions.length === 0}
+                disabled={clearing}
                 className="rounded-full bg-rose-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {clearing ? "삭제 중..." : "전체 로그 초기화"}
@@ -386,7 +365,6 @@ export function AdminDashboard() {
           </section>
             </div>
           </div>
-        ) : null}
       </div>
     </main>
   );

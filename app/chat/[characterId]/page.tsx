@@ -90,23 +90,80 @@ function ChatScreen({ character }: { character: Character }) {
   const [accessLoading, setAccessLoading] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const runIdRef = useRef<string | undefined>(undefined);
+  const ensureRunPromiseRef = useRef<Promise<string | undefined> | null>(null);
   const currentImageStage = useMemo(
     () => getImageStage(character, chatState.affection),
     [character, chatState.affection],
   );
 
   useEffect(() => {
-    queueMicrotask(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
       const saved = storage.load()?.characters[character.id]?.chatState;
-      const nextState = saved ?? createInitialChatState(character);
+      let nextState = saved ?? createInitialChatState(character);
 
       if (!saved) {
         storage.saveChatState(character.id, nextState);
       }
 
+      const profile = storage.getOrCreatePlayerProfile();
+
+      try {
+        const url = `/api/session/active?playerId=${encodeURIComponent(profile.playerId)}&characterId=${encodeURIComponent(character.id)}`;
+        const response = await fetch(url, { cache: "no-store" });
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            configured: boolean;
+            session: {
+              runId: string;
+              status: "in_progress" | "completed";
+              currentAffection: number;
+              turnsUsed: number;
+              messages: { role: "user" | "assistant"; content: string; timestamp: number }[];
+            } | null;
+          };
+
+          if (payload.configured && payload.session && !nextState.isGameOver) {
+            const remote = payload.session;
+            const localCount = nextState.messages.length;
+            const remoteCount = remote.messages.length;
+
+            if (remoteCount > localCount) {
+              nextState = {
+                ...nextState,
+                messages: remote.messages.map((message) => ({
+                  role: message.role,
+                  content: message.content,
+                  timestamp: message.timestamp,
+                })),
+                affection: remote.currentAffection,
+                turnCount: remote.turnsUsed,
+                serverRunId: remote.runId,
+              };
+              storage.saveChatState(character.id, nextState);
+            } else if (!nextState.serverRunId) {
+              nextState = { ...nextState, serverRunId: remote.runId };
+              storage.saveChatState(character.id, nextState);
+            }
+          }
+        }
+      } catch {
+        // 서버 동기화 실패 시 로컬 상태로 진행
+      }
+
+      if (cancelled) return;
+      runIdRef.current = nextState.serverRunId;
       setChatState(nextState);
       setShowGameOver(nextState.isGameOver);
-    });
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
   }, [character]);
 
   useEffect(() => {
@@ -122,6 +179,80 @@ function ChatScreen({ character }: { character: Character }) {
   useEffect(() => {
     setSceneImage(currentImageStage.image);
   }, [currentImageStage.image]);
+
+  const ensureServerRun = async (currentAffection: number): Promise<string | undefined> => {
+    if (runIdRef.current) return runIdRef.current;
+    if (ensureRunPromiseRef.current) return ensureRunPromiseRef.current;
+
+    const profile = storage.getOrCreatePlayerProfile();
+
+    const promise = (async () => {
+      try {
+        const response = await fetch("/api/session/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId: profile.playerId,
+            nickname: profile.nickname,
+            characterId: character.id,
+            characterName: character.name,
+            currentAffection,
+          }),
+        });
+
+        if (!response.ok) return undefined;
+
+        const payload = (await response.json()) as { synced: boolean; runId?: string };
+        if (!payload.synced || !payload.runId) return undefined;
+
+        runIdRef.current = payload.runId;
+        setChatState((current) => {
+          if (!current || current.serverRunId === payload.runId) return current;
+          const updated = { ...current, serverRunId: payload.runId };
+          storage.saveChatState(character.id, updated);
+          return updated;
+        });
+        return payload.runId;
+      } catch {
+        return undefined;
+      } finally {
+        ensureRunPromiseRef.current = null;
+      }
+    })();
+
+    ensureRunPromiseRef.current = promise;
+    return promise;
+  };
+
+  const appendMessageToServer = async (
+    role: "user" | "assistant",
+    content: string,
+    timestamp: number,
+    messageIndex: number,
+    currentAffection: number,
+    turnsUsed: number,
+  ) => {
+    const runId = await ensureServerRun(currentAffection);
+    if (!runId) return;
+
+    try {
+      await fetch("/api/session/append", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          runId,
+          role,
+          content,
+          timestamp,
+          messageIndex,
+          currentAffection,
+          turnsUsed,
+        }),
+      });
+    } catch {
+      // 메시지 단위 저장 실패는 게임 오버 시 bulk 저장으로 복구
+    }
+  };
 
   const handleUnlock = async () => {
     setAccessLoading(true);
@@ -145,6 +276,7 @@ function ChatScreen({ character }: { character: Character }) {
 
       setUnlocked(true);
       setAccessKeyword("");
+      void ensureServerRun(chatState.affection);
     } catch {
       setAccessError("비밀 키워드를 확인하지 못했습니다.");
     } finally {
@@ -161,7 +293,7 @@ function ChatScreen({ character }: { character: Character }) {
         body: JSON.stringify({
           playerId: playerProfile.playerId,
           nickname: playerProfile.nickname,
-          runId: nextState.serverRunId,
+          runId: runIdRef.current ?? nextState.serverRunId,
           characterId: character.id,
           characterName: character.name,
           success: nextState.isSuccess,
@@ -233,6 +365,15 @@ function ChatScreen({ character }: { character: Character }) {
       setChatState(pendingState);
       storage.saveChatState(character.id, pendingState);
 
+      void appendMessageToServer(
+        "user",
+        userMessage.content,
+        userMessage.timestamp,
+        nextMessages.length - 1,
+        chatState.affection,
+        chatState.turnCount,
+      );
+
       const requestStartedAt = Date.now();
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -280,6 +421,15 @@ function ChatScreen({ character }: { character: Character }) {
       setChatState(nextState);
       storage.saveChatState(character.id, nextState);
       setToastValue(payload.status.change);
+
+      void appendMessageToServer(
+        "assistant",
+        assistantMessage.content,
+        assistantMessage.timestamp,
+        finalMessages.length - 1,
+        nextState.affection,
+        nextState.turnCount,
+      );
 
       if (payload.status.gameOver) {
         setShowGameOver(true);

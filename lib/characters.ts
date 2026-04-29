@@ -11,7 +11,7 @@ const ruleSchema = z.object({
 
 const evaluationRubricItemSchema = z.object({
   label: z.string().min(1),
-  points: z.number().positive(),
+  points: z.number().int().positive(),
   criteria: z.string().min(1),
 });
 

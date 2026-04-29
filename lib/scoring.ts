@@ -5,7 +5,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function inferZeroChange(status: string, nextTurn: number) {
+function inferZeroChange(status: string) {
   const positiveKeywords = ["웃", "흥미", "관심", "호감", "편안", "부드", "즐거", "미소", "가까"];
   const negativeKeywords = ["경직", "차갑", "불편", "부담", "싫", "시큰둥", "어색", "당황", "거리", "굳", "피하"];
 
@@ -17,7 +17,7 @@ function inferZeroChange(status: string, nextTurn: number) {
     return -3;
   }
 
-  return nextTurn <= 2 ? 2 : 1;
+  return 0;
 }
 
 function resolveDynamicChange(
@@ -29,26 +29,31 @@ function resolveDynamicChange(
   const rounded = Math.round(rawChange);
 
   if (rounded === 0) {
-    return inferZeroChange(status, nextTurn);
+    return inferZeroChange(status);
   }
 
   const sign = Math.sign(rounded);
   const absolute = Math.abs(rounded);
   const turnPressure = 1 + (Math.max(nextTurn - 1, 0) / Math.max(maxTurns - 1, 1)) * 0.12;
 
-  // 모델이 소심하게 준 변화도 게임에서는 체감되게 만든다.
+  // 모델이 루브릭 스케일(1, 2)을 잘못 쓰면 실제로는 트리거 스케일이라고 보고 키운다.
+  // ±1, ±2 → ±5, ±6 으로 강제 승격.
   const boosted =
     sign > 0
-      ? absolute <= 3
-        ? absolute + 3
-        : absolute <= 9
-          ? Math.round(absolute * 1.25)
-          : Math.round(absolute * 1.12)
-      : absolute <= 3
-        ? absolute + 3
-        : absolute <= 12
-          ? Math.round(absolute * (turnPressure + 0.12))
-          : Math.round(absolute * 1.15);
+      ? absolute <= 2
+        ? absolute + 4
+        : absolute <= 5
+          ? absolute + 3
+          : absolute <= 9
+            ? Math.round(absolute * 1.25)
+            : Math.round(absolute * 1.12)
+      : absolute <= 2
+        ? absolute + 4
+        : absolute <= 5
+          ? absolute + 3
+          : absolute <= 12
+            ? Math.round(absolute * (turnPressure + 0.12))
+            : Math.round(absolute * 1.15);
 
   return clamp(
     sign * boosted,

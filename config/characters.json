@@ -41,9 +41,9 @@
     ],
     "evaluationRubric": [
       { "label": "명확한 책임 인정", "points": 2, "criteria": "무엇을 잘못했는지 구체적이고 무조건적으로 말한다." },
-      { "label": "적절한 설명", "points": 1.5, "criteria": "맥락은 설명하되 책임 전가나 합리화로 흐르지 않는다." },
+      { "label": "적절한 설명", "points": 1, "criteria": "맥락은 설명하되 책임 전가나 합리화로 흐르지 않는다." },
       { "label": "후회와 수치심", "points": 2, "criteria": "사회적 사과가 아니라 실제 반성과 미안함이 드러난다." },
-      { "label": "재발 방지 약속", "points": 1.5, "criteria": "앞으로 무엇을 어떻게 바꿀지 구체적으로 말한다." },
+      { "label": "재발 방지 약속", "points": 2, "criteria": "앞으로 무엇을 어떻게 바꿀지 구체적으로 말한다." },
       { "label": "보상과 복원 행동", "points": 1, "criteria": "공개 정정, 직접 사과, 추가 확산 중단 등 회복 행동을 제안한다." },
       { "label": "피해자 존엄 회복", "points": 1, "criteria": "상대 입장과 체면 손상을 인정하고 리스펙트를 회복한다." },
       { "label": "타이밍과 톤", "points": 1, "criteria": "장황하지 않고 낮은 자세로 핵심을 전달한다." }
@@ -90,8 +90,8 @@
       { "trigger": "구체적 근거 없이 성적 상향만 요구함", "range": [-18, -10] }
     ],
     "evaluationRubric": [
-      { "label": "Logos: 사실과 근거", "points": 2.5, "criteria": "채점 기준, 답안, 과제 제출 내역 등 검증 가능한 근거를 제시한다." },
-      { "label": "Ethos: 학생 신뢰성", "points": 1.5, "criteria": "출석, 제출, 수업 태도 등 평소 성실성과 일관된다." },
+      { "label": "Logos: 사실과 근거", "points": 2, "criteria": "채점 기준, 답안, 과제 제출 내역 등 검증 가능한 근거를 제시한다." },
+      { "label": "Ethos: 학생 신뢰성", "points": 2, "criteria": "출석, 제출, 수업 태도 등 평소 성실성과 일관된다." },
       { "label": "Pathos의 절제", "points": 1, "criteria": "감정 호소 과잉 없이 배움의 진정성을 전달한다." },
       { "label": "권위 인정 어조", "points": 1, "criteria": "교수의 전문성과 재량권을 존중한다." },
       { "label": "예의와 호감", "points": 1, "criteria": "무례하거나 압박하지 않는 정중한 톤을 유지한다." },
@@ -141,10 +141,10 @@
       { "trigger": "술기운 핑계의 가벼운 플러팅", "range": [-18, -10] }
     ],
     "evaluationRubric": [
-      { "label": "분위기 동기화", "points": 1.5, "criteria": "상대 텐션, 걷는 속도, 감정선에 맞춘다." },
-      { "label": "배려와 관찰", "points": 1.5, "criteria": "추위, 피곤함, 기분 등 상태를 자연스럽게 살핀다." },
-      { "label": "우리 화법", "points": 1.5, "criteria": "우리 같이, 우리끼리 등 결속감을 만드는 표현을 쓴다." },
-      { "label": "둘만의 맥락", "points": 1.5, "criteria": "공유된 경험을 친밀감으로 연결한다." },
+      { "label": "분위기 동기화", "points": 1, "criteria": "상대 텐션, 걷는 속도, 감정선에 맞춘다." },
+      { "label": "배려와 관찰", "points": 2, "criteria": "추위, 피곤함, 기분 등 상태를 자연스럽게 살핀다." },
+      { "label": "우리 화법", "points": 1, "criteria": "우리 같이, 우리끼리 등 결속감을 만드는 표현을 쓴다." },
+      { "label": "둘만의 맥락", "points": 2, "criteria": "공유된 경험을 친밀감으로 연결한다." },
       { "label": "점진적 자기 개방", "points": 1, "criteria": "솔직한 속마음을 부담 없이 공유한다." },
       { "label": "메타 커뮤니케이션", "points": 1, "criteria": "둘의 관계 자체를 부드럽게 언급한다." },
       { "label": "진정성", "points": 1, "criteria": "장난식 플러팅보다 진중한 태도를 보인다." },
@@ -195,9 +195,9 @@
     "evaluationRubric": [
       { "label": "거절의 명확성", "points": 2, "criteria": "안 된다는 메시지가 모호하지 않다." },
       { "label": "애교 압박 대응", "points": 1, "criteria": "상대의 귀여운 말투, 미안함, 재요청에 감정적으로 휘둘리지 않는다." },
-      { "label": "적극적 체면 보호", "points": 1.5, "criteria": "상대 가치와 관계를 인정한다." },
+      { "label": "적극적 체면 보호", "points": 2, "criteria": "상대 가치와 관계를 인정한다." },
       { "label": "소극적 체면 보호", "points": 1, "criteria": "압박하지 않고 서로의 결정권을 존중한다." },
-      { "label": "이유의 적절성", "points": 1.5, "criteria": "솔직하고 간결하며 거짓 변명 없이 설명한다." },
+      { "label": "이유의 적절성", "points": 1, "criteria": "솔직하고 간결하며 거짓 변명 없이 설명한다." },
       { "label": "부속어 활용", "points": 1, "criteria": "감사, 사과, 공감 표현을 적절히 쓴다." },
       { "label": "대안 제시", "points": 1, "criteria": "금전 외에 가능한 지원을 제안한다." },
       { "label": "일관성", "points": 1, "criteria": "재요청에도 입장을 유지한다." }

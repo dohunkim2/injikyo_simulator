@@ -5,7 +5,7 @@ const chatKeywordByCharacterId: Record<string, string> = {
   "reconciliation-swings-revised": "스윙스",
   "persuasion-professor-ahn-sj": "컴에듀",
   "love-mt-female-peer": "두근두근",
-  "refusal-cha-eunwoo-fictional": "차은우",
+  "refusal-cha-eunwoo-fictional": "국세청",
 };
 
 const resetKeyword = "미안합니다";

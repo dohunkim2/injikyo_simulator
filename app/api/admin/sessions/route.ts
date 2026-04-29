@@ -40,7 +40,11 @@ export async function DELETE() {
 
   try {
     const result = await clearAdminConversationLogs();
-    return NextResponse.json({ ok: true, deletedRuns: result.deletedRuns });
+    return NextResponse.json({
+      ok: true,
+      deletedRuns: result.deletedRuns,
+      deletedPlayers: result.deletedPlayers,
+    });
   } catch (error) {
     console.error("Failed to clear admin sessions", error);
     const detail = error instanceof Error ? error.message : "알 수 없는 오류";
