@@ -53,6 +53,7 @@ export async function POST(request: Request) {
 
     const raw = await openRouterChat({
       model: character.model,
+      timeoutMs: GAME.CHAT_PRIMARY_TIMEOUT_MS,
       ...requestPayload,
     }).catch((error) => {
       if (character.model === GAME.CHAT_MODEL_BACKUP) {
@@ -62,6 +63,8 @@ export async function POST(request: Request) {
       console.error("Primary chat model failed, retrying backup model", error);
       return openRouterChat({
         model: GAME.CHAT_MODEL_BACKUP,
+        timeoutMs: GAME.CHAT_BACKUP_TIMEOUT_MS,
+        maxRetries: 0,
         ...requestPayload,
       });
     });

@@ -144,6 +144,7 @@ async function runFeedbackEvaluation({
         max_tokens: maxTokens,
         temperature,
         timeoutMs: GAME.FEEDBACK_BACKUP_TIMEOUT_MS,
+        maxRetries: 0,
       });
 
       return parseJsonResponse(raw, `${label} 백업`);
