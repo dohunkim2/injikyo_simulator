@@ -66,7 +66,21 @@ export default function Home() {
                 {allCompleted ? "대화 분석 보기" : "첫 페르소나 시작하기"}
               </Link>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const phrase = window.prompt("기록을 초기화하려면 비밀 문구를 입력하세요.");
+                  if (!phrase) return;
+
+                  const response = await fetch("/api/access", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ type: "reset", keyword: phrase }),
+                  });
+
+                  if (!response.ok) {
+                    window.alert("비밀 문구가 올바르지 않습니다.");
+                    return;
+                  }
+
                   storage.reset();
                   setSaved(storage.load());
                   setProfile(storage.getOrCreatePlayerProfile());

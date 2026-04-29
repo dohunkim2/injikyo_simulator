@@ -85,6 +85,10 @@ function ChatScreen({ character }: { character: Character }) {
   const [toastValue, setToastValue] = useState<number | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
   const [sceneImage, setSceneImage] = useState(character.profileImage);
+  const [accessKeyword, setAccessKeyword] = useState("");
+  const [accessError, setAccessError] = useState("");
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const currentImageStage = useMemo(
     () => getImageStage(character, chatState.affection),
@@ -118,6 +122,35 @@ function ChatScreen({ character }: { character: Character }) {
   useEffect(() => {
     setSceneImage(currentImageStage.image);
   }, [currentImageStage.image]);
+
+  const handleUnlock = async () => {
+    setAccessLoading(true);
+    setAccessError("");
+
+    try {
+      const response = await fetch("/api/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chat",
+          characterId: character.id,
+          keyword: accessKeyword,
+        }),
+      });
+
+      if (!response.ok) {
+        setAccessError("비밀 키워드가 올바르지 않습니다.");
+        return;
+      }
+
+      setUnlocked(true);
+      setAccessKeyword("");
+    } catch {
+      setAccessError("비밀 키워드를 확인하지 못했습니다.");
+    } finally {
+      setAccessLoading(false);
+    }
+  };
 
   const finishGame = async (messages: Message[], nextState: ChatState) => {
     try {
@@ -258,6 +291,21 @@ function ChatScreen({ character }: { character: Character }) {
     }
   };
 
+  if (!unlocked) {
+    return (
+      <AccessGate
+        value={accessKeyword}
+        error={accessError}
+        loading={accessLoading}
+        onChange={(value) => {
+          setAccessKeyword(value);
+          setAccessError("");
+        }}
+        onSubmit={handleUnlock}
+      />
+    );
+  }
+
   return (
     <main className="relative h-screen overflow-hidden bg-slate-900 text-slate-900">
       <div className="mx-auto grid h-screen max-w-7xl gap-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
@@ -389,6 +437,63 @@ function ChatScreen({ character }: { character: Character }) {
         characterId={character.id}
         onClose={() => setShowGameOver(false)}
       />
+    </main>
+  );
+}
+
+function AccessGate({
+  value,
+  error,
+  loading,
+  onChange,
+  onSubmit,
+}: {
+  value: string;
+  error: string;
+  loading: boolean;
+  onChange: (value: string) => void;
+  onSubmit: () => void | Promise<void>;
+}) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-slate-900">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+        className="w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-2xl"
+      >
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Private Session</p>
+        <h1 className="mt-3 text-2xl font-black text-slate-950">비밀 키워드 입력</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          발표 자료에 안내된 키워드를 입력해야 대화를 시작할 수 있습니다.
+        </p>
+        <input
+          value={value}
+          type="password"
+          autoComplete="off"
+          disabled={loading}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="비밀 키워드"
+          className="mt-5 w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-base font-semibold outline-none focus:border-slate-900"
+        />
+        {error ? <p className="mt-3 text-sm font-semibold text-rose-600">{error}</p> : null}
+        <div className="mt-5 flex gap-2">
+          <Link
+            href="/"
+            className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
+          >
+            홈으로
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
+          >
+            {loading ? "확인 중" : "입장"}
+          </button>
+        </div>
+      </form>
     </main>
   );
 }
