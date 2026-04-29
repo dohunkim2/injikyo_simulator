@@ -36,6 +36,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ synced: false, error: "잘못된 요청 형식입니다." }, { status: 400 });
     }
 
+    // FK 위반 = 해당 runId의 conversation_runs 행이 사라졌다는 뜻 (관리자 초기화 직후 등)
+    const code = (error as { code?: string })?.code;
+    if (code === "23503") {
+      return NextResponse.json({ synced: false, runMissing: true });
+    }
+
     return NextResponse.json({ synced: false, error: "메시지 저장에 실패했습니다." }, { status: 500 });
   }
 }

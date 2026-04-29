@@ -16,6 +16,7 @@ import { StatusMessage } from "@/components/game/StatusMessage";
 import { TurnCounter } from "@/components/game/TurnCounter";
 import { getCharacterById } from "@/lib/characters";
 import { storage } from "@/lib/storage";
+import { useClearEpochCheck } from "@/lib/use-clear-epoch";
 import type {
   Character,
   CharacterFeedback,
@@ -36,6 +37,7 @@ function wait(ms: number) {
 }
 
 export default function ChatPage() {
+  useClearEpochCheck();
   const params = useParams<{ characterId: string }>();
   const defaultCharacter = useMemo(
     () => getCharacterById(params.characterId ?? ""),
@@ -228,7 +230,7 @@ function ChatScreen({ character }: { character: Character }) {
     if (!runId) return;
 
     try {
-      await fetch("/api/session/append", {
+      const response = await fetch("/api/session/append", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -242,6 +244,22 @@ function ChatScreen({ character }: { character: Character }) {
           ...(affectionChange !== undefined ? { affectionChange } : {}),
         }),
       });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { synced: boolean; runMissing?: boolean }
+        | null;
+
+      // 관리자가 DB를 초기화했다면 runId가 사라진 상태. 로컬 runId를 비워서
+      // 다음 호출에서 새 run을 만들고 이어가도록 한다.
+      if (payload?.runMissing) {
+        runIdRef.current = undefined;
+        ensureRunPromiseRef.current = null;
+        setChatState((current) =>
+          current && current.serverRunId
+            ? { ...current, serverRunId: undefined }
+            : current,
+        );
+      }
     } catch {
       // 메시지 단위 저장 실패는 게임 오버 시 bulk 저장으로 복구
     }

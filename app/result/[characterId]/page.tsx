@@ -7,9 +7,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LeaderboardPanel } from "@/components/game/LeaderboardPanel";
 import { getCharacterById } from "@/lib/characters";
 import { storage } from "@/lib/storage";
+import { useClearEpochCheck } from "@/lib/use-clear-epoch";
 import type { Character, CharacterFeedback, RubricFeedbackItem } from "@/lib/types";
 
 export default function ResultPage() {
+  useClearEpochCheck();
   const params = useParams<{ characterId: string }>();
   const defaultCharacter = useMemo(() => getCharacterById(params.characterId ?? ""), [params.characterId]);
   const [character, setCharacter] = useState<Character | null>(defaultCharacter);

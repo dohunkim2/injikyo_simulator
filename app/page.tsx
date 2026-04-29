@@ -10,11 +10,13 @@ import { PlayerProfileCard } from "@/components/game/PlayerProfileCard";
 import { CharacterCard } from "@/components/select/CharacterCard";
 import { getCharacters } from "@/lib/characters";
 import { storage } from "@/lib/storage";
+import { useClearEpochCheck } from "@/lib/use-clear-epoch";
 import type { Character, PlayerProfile, SavedData } from "@/lib/types";
 
 const defaultCharacters = getCharacters();
 
 export default function Home() {
+  useClearEpochCheck();
   const [characters, setCharacters] = useState<Character[]>(defaultCharacters);
   const [saved, setSaved] = useState<SavedData | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);

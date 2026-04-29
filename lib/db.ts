@@ -179,6 +179,20 @@ async function ensureTablesUncached() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS admin_state (
+      id INT PRIMARY KEY,
+      last_cleared_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT admin_state_singleton CHECK (id = 1)
+    )
+  `;
+
+  await sql`
+    INSERT INTO admin_state (id, last_cleared_at)
+    VALUES (1, NOW())
+    ON CONFLICT (id) DO NOTHING
+  `;
 }
 
 async function upsertPlayer(playerId: string, nickname: string) {
@@ -712,7 +726,23 @@ export async function clearAdminConversationLogs() {
 
   await sql`TRUNCATE TABLE conversation_messages, conversation_runs, players RESTART IDENTITY CASCADE`;
 
+  await sql`
+    INSERT INTO admin_state (id, last_cleared_at)
+    VALUES (1, NOW())
+    ON CONFLICT (id) DO UPDATE SET last_cleared_at = NOW()
+  `;
+
   return { deletedRuns, deletedPlayers };
+}
+
+export async function getLastClearedAt(): Promise<string | null> {
+  await ensureTables();
+
+  const result = await sql<{ last_cleared_at: string }>`
+    SELECT last_cleared_at::text FROM admin_state WHERE id = 1 LIMIT 1
+  `;
+
+  return result.rows[0]?.last_cleared_at ?? null;
 }
 
 export async function getPersonaConfigOverrides(): Promise<PersonaConfigRecord[]> {

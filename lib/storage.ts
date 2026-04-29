@@ -1,4 +1,6 @@
 import { STORAGE_KEY } from "./constants";
+
+const STORAGE_EPOCH_KEY = "dating-sim-clear-epoch";
 import { getCharacterById, getCharacters } from "./characters";
 import type {
   AllConversationsPayload,
@@ -144,6 +146,16 @@ export const storage = {
   reset(): void {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(STORAGE_KEY);
+  },
+
+  getClearEpoch(): string | null {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(STORAGE_EPOCH_KEY);
+  },
+
+  setClearEpoch(value: string): void {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_EPOCH_KEY, value);
   },
 };
 
