@@ -17,8 +17,10 @@ export async function GET() {
     return NextResponse.json({
       configured: true,
       entries,
+      message: entries.length === 0 ? "완료된 서버 저장 기록이 아직 없습니다." : undefined,
     });
   } catch (error) {
+    console.error("Leaderboard load failed", error);
     return NextResponse.json(
       {
         configured: false,

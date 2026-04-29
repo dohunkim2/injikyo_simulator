@@ -155,23 +155,6 @@ function ChatScreen({ character }: { character: Character }) {
   const finishGame = async (messages: Message[], nextState: ChatState) => {
     try {
       const playerProfile = storage.getOrCreatePlayerProfile();
-      const feedbackResponse = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          characterId: character.id,
-          messages,
-          success: nextState.isSuccess,
-          finalAffection: nextState.affection,
-          turnsUsed: nextState.turnCount,
-        }),
-      });
-
-      if (feedbackResponse.ok) {
-        const feedback = (await feedbackResponse.json()) as CharacterFeedback;
-        storage.saveFeedback(character.id, feedback);
-      }
-
       const syncResponse = await fetch("/api/session/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,6 +180,27 @@ function ChatScreen({ character }: { character: Character }) {
         ...serverSync,
         syncedAt: serverSync.syncedAt ?? Date.now(),
       });
+
+      try {
+        const feedbackResponse = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId: character.id,
+            messages,
+            success: nextState.isSuccess,
+            finalAffection: nextState.affection,
+            turnsUsed: nextState.turnCount,
+          }),
+        });
+
+        if (feedbackResponse.ok) {
+          const feedback = (await feedbackResponse.json()) as CharacterFeedback;
+          storage.saveFeedback(character.id, feedback);
+        }
+      } catch {
+        // 랭킹 저장은 이미 끝났으므로 결과 페이지의 재요청 버튼에서 다시 시도한다.
+      }
     } catch {
       storage.saveServerSync(character.id, {
         synced: false,

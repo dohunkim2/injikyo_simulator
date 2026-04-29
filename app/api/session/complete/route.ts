@@ -42,13 +42,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ synced: false, error: "잘못된 요청 형식입니다." }, { status: 400 });
+      return NextResponse.json(
+        { synced: false, error: `잘못된 요청 형식입니다: ${error.issues[0]?.message ?? "검증 실패"}` },
+        { status: 400 },
+      );
     }
+
+    console.error("Completed session save failed", error);
+    const detail = error instanceof Error ? error.message : "알 수 없는 오류";
 
     return NextResponse.json(
       {
         synced: false,
-        error: "세션 저장에 실패했습니다.",
+        error: `세션 저장에 실패했습니다: ${detail}`,
       },
       { status: 500 },
     );

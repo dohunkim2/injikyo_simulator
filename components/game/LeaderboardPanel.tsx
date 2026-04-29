@@ -18,10 +18,19 @@ export function LeaderboardPanel() {
     const run = async () => {
       try {
         const response = await fetch("/api/leaderboard", { cache: "no-store" });
-        const payload = (await response.json()) as LeaderboardResponse;
+        const payload = (await response.json().catch(() => null)) as LeaderboardResponse | null;
+
+        if (!response.ok || !payload) {
+          throw new Error(payload?.message ?? `랭킹 API 오류 (${response.status})`);
+        }
+
         setData(payload);
-      } catch {
-        setData({ configured: false, entries: [], message: "랭킹을 불러오지 못했습니다." });
+      } catch (error) {
+        setData({
+          configured: false,
+          entries: [],
+          message: error instanceof Error ? error.message : "랭킹을 불러오지 못했습니다.",
+        });
       } finally {
         setLoading(false);
       }
