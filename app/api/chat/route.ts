@@ -33,21 +33,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "캐릭터를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    const raw = await openRouterChat({
-      model: character.model,
-      messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(character, body.currentTurn, body.currentAffection),
-        },
-        ...body.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-        { role: "user", content: body.newMessage },
-      ],
+    const messages = [
+      {
+        role: "system" as const,
+        content: buildSystemPrompt(character, body.currentTurn, body.currentAffection),
+      },
+      ...body.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      { role: "user" as const, content: body.newMessage },
+    ];
+
+    const requestPayload = {
+      messages,
       max_tokens: GAME.AI_MAX_TOKENS,
       temperature: GAME.AI_TEMPERATURE,
+    };
+
+    const raw = await openRouterChat({
+      model: character.model,
+      ...requestPayload,
+    }).catch((error) => {
+      if (character.model === GAME.CHAT_MODEL_BACKUP) {
+        throw error;
+      }
+
+      console.error("Primary chat model failed, retrying backup model", error);
+      return openRouterChat({
+        model: GAME.CHAT_MODEL_BACKUP,
+        ...requestPayload,
+      });
     });
 
     const { message, aiStatus } = parseAIResponse(raw);
@@ -66,6 +82,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "잘못된 요청 형식입니다." }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "채팅 요청 처리에 실패했습니다." }, { status: 500 });
+    console.error("Chat API failed", error);
+    const detail = error instanceof Error ? error.message : "알 수 없는 오류";
+    return NextResponse.json({ error: `채팅 요청 처리에 실패했습니다: ${detail}` }, { status: 500 });
   }
 }

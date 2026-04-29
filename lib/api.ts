@@ -16,6 +16,7 @@ type OpenRouterResponse = {
     message?: {
       content?: string;
     };
+    finish_reason?: string;
   }>;
   error?: {
     message?: string;
@@ -56,10 +57,13 @@ export async function openRouterChat(payload: OpenRouterPayload): Promise<string
     throw new Error(data.error?.message ?? "OpenRouter 호출에 실패했습니다.");
   }
 
-  const content = data.choices?.[0]?.message?.content;
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content;
 
   if (!content) {
-    throw new Error("OpenRouter 응답에서 메시지를 찾을 수 없습니다.");
+    throw new Error(
+      `OpenRouter 응답에서 메시지를 찾을 수 없습니다.${choice?.finish_reason ? ` finish_reason=${choice.finish_reason}` : ""}`,
+    );
   }
 
   return content;
