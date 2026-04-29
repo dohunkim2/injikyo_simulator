@@ -38,6 +38,8 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+const SESSION_SYNC_TIMEOUT_MS = 1500;
+
 export default function ChatPage() {
   const params = useParams<{ characterId: string }>();
   const defaultCharacter = useMemo(
@@ -184,6 +186,7 @@ function ChatScreen({ character }: { character: Character }) {
     const response = await fetch("/api/session/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(SESSION_SYNC_TIMEOUT_MS),
       body: JSON.stringify({
         playerId: playerProfile.playerId,
         nickname: playerProfile.nickname,
@@ -191,7 +194,11 @@ function ChatScreen({ character }: { character: Character }) {
         characterName: character.name,
         currentAffection: state.affection,
       }),
-    });
+    }).catch(() => null);
+
+    if (!response) {
+      return undefined;
+    }
 
     const payload = (await response.json().catch(() => null)) as SessionStartResponse | null;
 
@@ -214,6 +221,7 @@ function ChatScreen({ character }: { character: Character }) {
     await fetch("/api/session/append", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(SESSION_SYNC_TIMEOUT_MS),
       body: JSON.stringify({
         runId: args.runId,
         role: args.message.role,
@@ -252,7 +260,7 @@ function ChatScreen({ character }: { character: Character }) {
       setChatState(pendingState);
       storage.saveChatState(character.id, pendingState);
 
-      await appendServerMessage({
+      void appendServerMessage({
         runId,
         message: userMessage,
         messageIndex: previousMessages.length,
@@ -307,7 +315,7 @@ function ChatScreen({ character }: { character: Character }) {
 
       setChatState(nextState);
       storage.saveChatState(character.id, nextState);
-      await appendServerMessage({
+      void appendServerMessage({
         runId,
         message: assistantMessage,
         messageIndex: nextMessages.length,
