@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import postgres from "postgres";
 
 import type {
   AdminSessionDetail,
@@ -10,6 +10,46 @@ import type {
   Role,
   SessionStatus,
 } from "./types";
+
+type QueryResult<T extends postgres.Row> = {
+  rows: T[];
+};
+
+type PostgresClient = ReturnType<typeof postgres>;
+
+const globalForPostgres = globalThis as unknown as {
+  postgresClient?: PostgresClient;
+};
+
+function getDatabaseUrl() {
+  return process.env.POSTGRES_URL ?? process.env.POSTGRES_URL_NON_POOLING;
+}
+
+function getSqlClient() {
+  const databaseUrl = getDatabaseUrl();
+
+  if (!databaseUrl) {
+    throw new Error("POSTGRES_URL이 설정되지 않았습니다.");
+  }
+
+  if (!globalForPostgres.postgresClient) {
+    globalForPostgres.postgresClient = postgres(databaseUrl, {
+      max: 1,
+      prepare: false,
+      ssl: databaseUrl.includes("localhost") ? false : "require",
+    });
+  }
+
+  return globalForPostgres.postgresClient;
+}
+
+async function sql<T extends postgres.Row = postgres.Row>(
+  strings: TemplateStringsArray,
+  ...values: postgres.ParameterOrFragment<never>[]
+): Promise<QueryResult<T>> {
+  const rows = await getSqlClient()<T[]>(strings, ...values);
+  return { rows };
+}
 
 export type CompleteSessionInput = {
   runId?: string;
@@ -42,7 +82,7 @@ export type AppendSessionMessageInput = {
 };
 
 export function isDatabaseConfigured() {
-  return Boolean(process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING);
+  return Boolean(getDatabaseUrl());
 }
 
 export async function ensureTables() {
