@@ -406,32 +406,25 @@ export async function saveCompletedSession(input: CompleteSessionInput) {
     `;
 
     if (input.messages.length > 0) {
-      const serializedMessages = JSON.stringify(
-        input.messages.map((message, index) => ({
-          id: randomUUID(),
-          message_index: index,
-          role: message.role,
-          content: message.content,
-          sent_at: new Date(message.timestamp).toISOString(),
-        })),
-      );
+      const messageRows = input.messages.map((message, index) => ({
+        id: randomUUID(),
+        run_id: runId,
+        role: message.role,
+        content: message.content,
+        sent_at: new Date(message.timestamp),
+        message_index: index,
+      }));
 
       await tx`
-        INSERT INTO conversation_messages (id, run_id, role, content, sent_at, message_index)
-        SELECT
-          item.id::uuid,
-          ${runId}::uuid,
-          item.role,
-          item.content,
-          item.sent_at::timestamptz,
-          item.message_index
-        FROM jsonb_to_recordset(${serializedMessages}::jsonb) AS item(
-          id text,
-          role text,
-          content text,
-          sent_at text,
-          message_index int
-        )
+        INSERT INTO conversation_messages ${tx(
+          messageRows,
+          "id",
+          "run_id",
+          "role",
+          "content",
+          "sent_at",
+          "message_index",
+        )}
         ON CONFLICT (run_id, message_index) WHERE message_index IS NOT NULL
         DO UPDATE SET
           role = EXCLUDED.role,
@@ -790,14 +783,15 @@ export async function saveFeedbackForRun(
 ): Promise<{ updated: boolean }> {
   await ensureTables();
 
-  const result = await sql<{ id: string }>`
+  const client = getSqlClient();
+  const result = await client<{ id: string }[]>`
     UPDATE conversation_runs
-    SET feedback = ${JSON.stringify(feedback)}::jsonb
+    SET feedback = ${client.json(feedback as unknown as postgres.JSONValue)}
     WHERE id = ${runId}
     RETURNING id::text
   `;
 
-  return { updated: result.rows.length > 0 };
+  return { updated: result.length > 0 };
 }
 
 export async function clearAdminConversationLogs() {
@@ -878,4 +872,3 @@ export async function getPersonaConfigOverride(characterId: string): Promise<Per
     updatedAt: row.updated_at,
   };
 }
-
