@@ -4,7 +4,7 @@
     "name": "스윙스",
     "profileImage": "/characters/swings.png",
     "imageStages": [
-      { "minScore": 0, "image": "/characters/swings.png", "label": "긴장 상태" },
+      { "minScore": 0, "image": "/characters/anger_swings.png", "label": "분노 상태" },
       { "minScore": 60, "image": "/characters/swings.png", "label": "대화가 풀리는 중" },
       { "minScore": 85, "image": "/characters/swings.png", "label": "관계 회복 직전" }
     ],

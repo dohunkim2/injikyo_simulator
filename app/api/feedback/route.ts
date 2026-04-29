@@ -29,29 +29,27 @@ function fallbackFeedback(args: {
   turnsUsed: number;
   messages: Message[];
   character?: Character | null;
+  errorDetails?: string[];
 }): CharacterFeedback {
-  const userLines = args.messages.filter((message) => message.role === "user");
   const rubricScores = buildFallbackRubricScores(args.character, args.success);
   const maxRubricScore = rubricScores.reduce((sum, item) => sum + item.points, 0);
-  const totalRubricScore = rubricScores.reduce((sum, item) => sum + item.score, 0);
+  const errorSummary = args.errorDetails?.length ? ` 실패 원인: ${args.errorDetails.join(" / ")}` : "";
 
   return {
     characterId: args.characterId,
     success: args.success,
     finalAffection: args.finalAffection,
     turnsUsed: args.turnsUsed,
-    bestLine: userLines[0]?.content ?? "대화를 시작했다",
-    worstLine: userLines[userLines.length - 1]?.content ?? "아쉽게 흐름이 끊겼다",
-    summary: args.success ? "분위기를 잘 끌어올린 공략" : "가능성은 있었지만 마무리가 아쉬움",
+    bestLine: "저지 모델 평가 전",
+    worstLine: "저지 모델 평가 전",
+    summary: "저지 재요청 필요",
     rubricScores,
-    totalRubricScore,
+    totalRubricScore: 0,
     maxRubricScore,
-    grade: getGradeFromRatio(maxRubricScore > 0 ? totalRubricScore / maxRubricScore : args.finalAffection / 100),
-    strengths: args.success ? ["핵심 목표를 비교적 명확히 건드렸습니다."] : ["대화를 끝까지 진행했습니다."],
-    improvements: args.success
-      ? ["더 구체적인 표현을 넣으면 완성도가 올라갑니다."]
-      : ["상대의 핵심 감정과 과제 조건을 더 직접적으로 다뤄보세요."],
-    judgeComment: "저지 모델 응답을 받지 못해 기본 기준으로 산출한 임시 결과입니다.",
+    grade: "F",
+    strengths: ["저지 모델 평가가 아직 완료되지 않았습니다."],
+    improvements: ["피드백 재요청으로 루브릭 평가를 다시 생성해 주세요."],
+    judgeComment: `저지 모델 응답을 받지 못해 평가를 저장하지 않았습니다.${errorSummary}`,
   };
 }
 
@@ -60,14 +58,13 @@ function buildFallbackRubricScores(
   success: boolean,
 ): RubricFeedbackItem[] {
   return (character?.evaluationRubric ?? []).map((item) => {
-    const ratio = success ? 0.72 : 0.42;
     return {
       label: item.label,
       points: item.points,
-      score: roundScore(item.points * ratio),
+      score: 0,
       criteria: item.criteria,
-      evidence: "저지 모델 평가를 불러오지 못했습니다.",
-      comment: "기본 점수로 임시 산출했습니다.",
+      evidence: "저지 모델 평가가 아직 완료되지 않았습니다.",
+      comment: "피드백 재요청으로 다시 채점할 수 있습니다.",
     };
   });
 }
@@ -94,6 +91,24 @@ function getGradeFromRatio(ratio: number): CharacterFeedback["grade"] {
 function extractJsonBlock(raw: string) {
   const match = raw.match(/\{[\s\S]*\}/);
   return match?.[0];
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "알 수 없는 오류";
+}
+
+function parseJsonResponse(raw: string, label: string): Partial<CharacterFeedback> {
+  const jsonBlock = extractJsonBlock(raw);
+
+  if (!jsonBlock) {
+    throw new Error(`${label} 응답에서 JSON을 찾지 못했습니다.`);
+  }
+
+  try {
+    return JSON.parse(jsonBlock) as Partial<CharacterFeedback>;
+  } catch (error) {
+    throw new Error(`${label} JSON 파싱 실패: ${getErrorMessage(error)}`);
+  }
 }
 
 function normalizeMessages(messages: z.infer<typeof requestSchema>["messages"]): Message[] {
@@ -173,28 +188,27 @@ export async function POST(request: Request) {
       .map((message) => `${message.role === "user" ? "사용자" : activeCharacter.name}: ${message.content}`)
       .join("\n");
 
-    const raw = await openRouterChat({
-      model: GAME.FEEDBACK_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "당신은 대화 훈련 평가 코치입니다. 반드시 JSON만 반환하세요.",
-        },
-        {
-          role: "user",
-          content: `아래는 대화 훈련 시뮬레이션에서 사용자와 "${activeCharacter.name}"의 대화입니다.
+    const commonContext = `아래는 대화 훈련 시뮬레이션에서 사용자와 "${activeCharacter.name}"의 대화입니다.
 과제: ${activeCharacter.mission}
 평가 기준: ${activeCharacter.evaluationRubric?.map((item) => `${item.label} ${item.points}점 - ${item.criteria}`).join(" / ") ?? "대화 목표 달성도"}
 결과: ${body.success ? "성공" : "실패"} (최종 ${activeCharacter.scoreLabel ?? "성공 점수"} ${body.finalAffection}/100)
 
 [대화 내역]
-${formattedMessages}
+${formattedMessages}`;
 
-아래 JSON으로만 응답하세요. JSON 외 다른 텍스트 없이:
+    const rubricEvaluation = openRouterChat({
+      model: GAME.FEEDBACK_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "당신은 대화 훈련 루브릭 채점관입니다. 반드시 JSON만 반환하세요.",
+        },
+        {
+          role: "user",
+          content: `${commonContext}
+
+루브릭 점수만 아래 JSON으로 반환하세요. JSON 외 다른 텍스트 없이:
 {
-  "summary": "한줄 요약 (20자 이내)",
-  "bestLine": "사용자의 가장 좋았던 발언 원문",
-  "worstLine": "사용자의 가장 안 좋았던 발언 원문",
   "rubricScores": [
     {
       "label": "평가 기준의 label 원문",
@@ -202,23 +216,52 @@ ${formattedMessages}
       "evidence": "대화에서 점수 근거가 되는 사용자 발언 또는 결여점",
       "comment": "짧은 판정 코멘트"
     }
-  ],
-  "strengths": ["잘한 점 1", "잘한 점 2"],
-  "improvements": ["개선점 1", "개선점 2"],
-  "judgeComment": "인바디 결과지처럼 종합 진단 1~2문장"
+  ]
 }
 
 rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니다. score는 각 기준의 만점(points)을 넘기지 마세요.`,
         },
       ],
-      max_tokens: GAME.FEEDBACK_MAX_TOKENS,
+      max_tokens: Math.ceil(GAME.FEEDBACK_MAX_TOKENS * 0.6),
+      temperature: 0.4,
+      timeoutMs: GAME.FEEDBACK_TIMEOUT_MS,
+    }).then((raw) => parseJsonResponse(raw, "루브릭 평가"));
+
+    const narrativeEvaluation = openRouterChat({
+      model: GAME.FEEDBACK_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "당신은 대화 훈련 결과 리포트 작성자입니다. 반드시 JSON만 반환하세요.",
+        },
+        {
+          role: "user",
+          content: `${commonContext}
+
+점수를 제외한 결과 리포트만 아래 JSON으로 반환하세요. JSON 외 다른 텍스트 없이:
+{
+  "summary": "한줄 요약 (20자 이내)",
+  "bestLine": "사용자의 가장 좋았던 발언 원문",
+  "worstLine": "사용자의 가장 안 좋았던 발언 원문",
+  "strengths": ["잘한 점 1", "잘한 점 2"],
+  "improvements": ["개선점 1", "개선점 2"],
+  "judgeComment": "인바디 결과지처럼 종합 진단 1~2문장"
+}`,
+        },
+      ],
+      max_tokens: Math.floor(GAME.FEEDBACK_MAX_TOKENS * 0.4),
       temperature: 0.6,
       timeoutMs: GAME.FEEDBACK_TIMEOUT_MS,
-    });
+    }).then((raw) => parseJsonResponse(raw, "서술 평가"));
 
-    const jsonBlock = extractJsonBlock(raw);
+    const [rubricResult, narrativeResult] = await Promise.allSettled([rubricEvaluation, narrativeEvaluation]);
 
-    if (!jsonBlock) {
+    if (rubricResult.status === "rejected") {
+      const errorDetails = [`루브릭 평가 실패: ${getErrorMessage(rubricResult.reason)}`];
+      if (narrativeResult.status === "rejected") {
+        errorDetails.push(`서술 평가 실패: ${getErrorMessage(narrativeResult.reason)}`);
+      }
+
       return NextResponse.json(
         fallbackFeedback({
           characterId: body.characterId,
@@ -227,11 +270,19 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
           turnsUsed: body.turnsUsed,
           messages: normalizeMessages(body.messages),
           character,
+          errorDetails,
         }),
       );
     }
 
-    const parsed = JSON.parse(jsonBlock) as Partial<CharacterFeedback>;
+    const parsed: Partial<CharacterFeedback> = {
+      ...rubricResult.value,
+      ...(narrativeResult.status === "fulfilled"
+        ? narrativeResult.value
+        : {
+            judgeComment: `루브릭 평가는 완료됐지만 서술 평가에 실패했습니다. 원인: ${getErrorMessage(narrativeResult.reason)}`,
+          }),
+    };
 
     return NextResponse.json(normalizeFeedback({ parsed, body, character: activeCharacter }));
   } catch (error) {
@@ -248,6 +299,7 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
           turnsUsed: body.turnsUsed,
           messages: normalizeMessages(body.messages ?? []),
           character,
+          errorDetails: [`피드백 API 오류: ${getErrorMessage(error)}`],
         }),
       );
     }

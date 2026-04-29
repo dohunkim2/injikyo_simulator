@@ -74,6 +74,11 @@ export default function ResultPage() {
         }
 
         const feedbackPayload = (await response.json()) as CharacterFeedback;
+        if (isFallbackFeedback(feedbackPayload)) {
+          setFeedbackError(feedbackPayload.judgeComment ?? "저지 모델 평가가 완료되지 않았습니다.");
+          return;
+        }
+
         storage.saveFeedback(character.id, feedbackPayload);
         setSaved(storage.load());
       } catch (error) {
@@ -118,8 +123,9 @@ export default function ResultPage() {
   }
 
   const { chatState, feedback } = record;
+  const judgeFeedback = isFallbackFeedback(feedback) ? undefined : feedback;
   const sync = record.serverSync;
-  const report = buildReport(feedback, character, chatState.affection);
+  const report = buildReport(judgeFeedback, character, chatState.affection);
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] px-4 py-8 text-slate-900">
@@ -146,8 +152,8 @@ export default function ResultPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
-          <HighlightCard title="Best Line" value={feedback?.bestLine ?? "기록 없음"} />
-          <HighlightCard title="Worst Line" value={feedback?.worstLine ?? "기록 없음"} />
+          <HighlightCard title="Best Line" value={judgeFeedback?.bestLine ?? "기록 없음"} />
+          <HighlightCard title="Worst Line" value={judgeFeedback?.worstLine ?? "기록 없음"} />
         </section>
 
         <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-black/5">
@@ -157,13 +163,21 @@ export default function ResultPage() {
               <div>
                 <h2 className="text-2xl font-bold">대화 결과표</h2>
                 <p className="mt-1 text-sm text-white/65">
-                  {feedback?.summary ??
+                  {judgeFeedback?.summary ??
                     (feedbackLoading ? "저지 모델이 결과표를 생성하는 중이에요." : "결과를 정리하는 중이에요.")}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="flex flex-col items-end gap-3 text-right">
                 <p className="text-5xl font-black leading-none">{report.grade}</p>
                 <p className="mt-1 text-xs text-white/60">Judge Grade</p>
+                <button
+                  type="button"
+                  disabled={feedbackLoading}
+                  onClick={() => void requestFeedback(true)}
+                  className="rounded-full bg-white px-4 py-2 text-xs font-bold text-slate-950 shadow-sm disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white/70"
+                >
+                  {feedbackLoading ? "재요청 중" : "피드백 재요청"}
+                </button>
               </div>
             </div>
           </div>
@@ -189,14 +203,6 @@ export default function ResultPage() {
                 {feedbackError}
               </div>
             ) : null}
-            <button
-              type="button"
-              disabled={feedbackLoading}
-              onClick={() => void requestFeedback(true)}
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {feedbackLoading ? "저지 모델 재요청 중" : feedback ? "피드백 다시 생성" : "피드백 재요청"}
-            </button>
           </div>
 
           <div className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">
@@ -267,6 +273,13 @@ function HighlightCard({ title, value }: { title: string; value: string }) {
   );
 }
 
+function isFallbackFeedback(feedback: CharacterFeedback | undefined) {
+  if (!feedback) return false;
+  if (feedback.judgeComment?.includes("저지 모델 응답")) return true;
+  if (feedback.judgeComment?.includes("임시 결과")) return true;
+  return feedback.rubricScores?.some((item) => item.evidence.includes("저지 모델 평가를 불러오지 못했습니다.")) ?? false;
+}
+
 function MetricCard({ label, value, suffix = "" }: { label: string; value: string; suffix?: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 px-4 py-3">
@@ -330,8 +343,8 @@ function buildReport(feedback: CharacterFeedback | undefined, character: Charact
           points: item.points,
           score: 0,
           criteria: item.criteria,
-          evidence: "이전 저장 기록에는 상세 저지 평가가 없습니다.",
-          comment: "새로 대화를 완료하면 자동으로 채점됩니다.",
+          evidence: "저지 모델 평가가 아직 완료되지 않았습니다.",
+          comment: "피드백 재요청을 눌러 다시 채점할 수 있습니다.",
         }));
   const max = feedback?.maxRubricScore ?? rubricScores.reduce((sum, item) => sum + item.points, 0);
   const total = feedback?.totalRubricScore ?? rubricScores.reduce((sum, item) => sum + item.score, 0);
