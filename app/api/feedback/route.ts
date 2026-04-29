@@ -11,6 +11,8 @@ export const maxDuration = 30;
 
 type FeedbackMessages = Parameters<typeof openRouterChat>[0]["messages"];
 
+const RUBRIC_ITEM_MAX_SCORE = 10;
+
 const requestSchema = z.object({
   characterId: z.string().min(1),
   runId: z.string().uuid().optional(),
@@ -64,7 +66,7 @@ function buildFallbackRubricScores(
   return (character?.evaluationRubric ?? []).map((item) => {
     return {
       label: item.label,
-      points: item.points,
+      points: RUBRIC_ITEM_MAX_SCORE,
       score: 0,
       criteria: item.criteria,
       evidence: "저지 모델 평가가 아직 완료되지 않았습니다.",
@@ -187,8 +189,8 @@ function normalizeFeedback(args: {
     const matched = parsedRubrics.find((entry) => entry?.label === item.label) ?? parsedRubrics[index];
     return {
       label: item.label,
-      points: item.points,
-      score: clampScore(matched?.score, item.points),
+      points: RUBRIC_ITEM_MAX_SCORE,
+      score: clampScore(matched?.score, RUBRIC_ITEM_MAX_SCORE),
       criteria: item.criteria,
       evidence: normalizeString(matched?.evidence, "대화 내 근거가 충분히 추출되지 않았습니다."),
       comment: normalizeString(matched?.comment, "추가 개선이 필요합니다."),
@@ -235,7 +237,7 @@ export async function POST(request: Request) {
 
     const commonContext = `아래는 대화 훈련 시뮬레이션에서 사용자와 "${activeCharacter.name}"의 대화입니다.
 과제: ${activeCharacter.mission}
-평가 기준: ${activeCharacter.evaluationRubric?.map((item) => `${item.label} ${item.points}점 - ${item.criteria}`).join(" / ") ?? "대화 목표 달성도"}
+평가 기준: ${activeCharacter.evaluationRubric?.map((item) => `${item.label} ${RUBRIC_ITEM_MAX_SCORE}점 만점 - ${item.criteria}`).join(" / ") ?? "대화 목표 달성도"}
 결과: ${body.success ? "성공" : "실패"} (최종 ${activeCharacter.scoreLabel ?? "성공 점수"} ${body.finalAffection}/100)
 
 [대화 내역]
@@ -262,7 +264,7 @@ ${formattedMessages}`;
   ]
 }
 
-rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니다. score는 각 기준의 만점(points)을 넘기지 마세요.`,
+rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니다. 모든 score는 0~10 사이 숫자이며, 각 기준은 10점 만점입니다.`,
         },
     ];
     const rubricEvaluation = runFeedbackEvaluation({

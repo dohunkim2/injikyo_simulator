@@ -22,6 +22,8 @@ type PersonaGroup = {
   activeCount: number;
 };
 
+const RUBRIC_ITEM_MAX_SCORE = 10;
+
 function formatTime(value: string | number | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("ko-KR", {
@@ -438,8 +440,9 @@ export function AdminDashboard() {
 }
 
 function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["feedback"]> }) {
-  const total = feedback.totalRubricScore ?? 0;
-  const max = feedback.maxRubricScore ?? 0;
+  const rubricScores = feedback.rubricScores?.map(normalizeRubricItemToTen) ?? [];
+  const total = rubricScores.reduce((sum, item) => sum + item.score, 0);
+  const max = rubricScores.reduce((sum, item) => sum + item.points, 0);
   const ratio = max > 0 ? Math.round((total / max) * 100) : 0;
 
   return (
@@ -452,7 +455,7 @@ function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["
         <div className="text-right">
           <p className="text-3xl font-black leading-none text-slate-900">{feedback.grade ?? "-"}</p>
           <p className="mt-1 text-xs text-slate-400">
-            {total}/{max} ({ratio}%)
+            {formatScore(total)}/{formatScore(max)} ({ratio}%)
           </p>
         </div>
       </div>
@@ -475,9 +478,9 @@ function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["
         </div>
       </div>
 
-      {feedback.rubricScores && feedback.rubricScores.length > 0 ? (
+      {rubricScores.length > 0 ? (
         <div className="mt-3 space-y-2">
-          {feedback.rubricScores.map((item) => (
+          {rubricScores.map((item) => (
             <RubricRow key={item.label} item={item} />
           ))}
         </div>
@@ -510,8 +513,7 @@ function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["
 }
 
 function RubricRow({ item }: { item: RubricFeedbackItem }) {
-  const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
-  const promptIndex = formatScore(ratio / 10);
+  const ratio = Math.min(100, Math.max(0, (item.score / RUBRIC_ITEM_MAX_SCORE) * 100));
   return (
     <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
       <div className="flex items-start justify-between gap-3">
@@ -522,7 +524,7 @@ function RubricRow({ item }: { item: RubricFeedbackItem }) {
           ) : null}
         </div>
         <p className="shrink-0 text-xs font-black text-slate-900">
-          {promptIndex}
+          {formatScore(item.score)}
           <span className="text-slate-400">/10</span>
         </p>
       </div>
@@ -543,4 +545,17 @@ function RubricRow({ item }: { item: RubricFeedbackItem }) {
       ) : null}
     </div>
   );
+}
+
+function normalizeRubricItemToTen(item: RubricFeedbackItem): RubricFeedbackItem {
+  const score =
+    item.points > 0 && item.points !== RUBRIC_ITEM_MAX_SCORE
+      ? (item.score / item.points) * RUBRIC_ITEM_MAX_SCORE
+      : item.score;
+
+  return {
+    ...item,
+    points: RUBRIC_ITEM_MAX_SCORE,
+    score: Math.round(Math.min(RUBRIC_ITEM_MAX_SCORE, Math.max(0, score)) * 10) / 10,
+  };
 }

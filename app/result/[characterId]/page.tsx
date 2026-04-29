@@ -10,6 +10,8 @@ import { storage } from "@/lib/storage";
 import { useClearEpochCheck } from "@/lib/use-clear-epoch";
 import type { Character, CharacterFeedback, RubricFeedbackItem } from "@/lib/types";
 
+const RUBRIC_ITEM_MAX_SCORE = 10;
+
 export default function ResultPage() {
   useClearEpochCheck();
   const params = useParams<{ characterId: string }>();
@@ -316,8 +318,7 @@ function MetricCard({ label, value, suffix = "" }: { label: string; value: strin
 }
 
 function RubricScoreRow({ item }: { item: RubricFeedbackItem }) {
-  const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
-  const promptIndex = formatScore(ratio / 10);
+  const ratio = Math.min(100, Math.max(0, (item.score / RUBRIC_ITEM_MAX_SCORE) * 100));
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
@@ -327,7 +328,7 @@ function RubricScoreRow({ item }: { item: RubricFeedbackItem }) {
           <p className="mt-1 text-xs leading-5 text-slate-500">{item.criteria}</p>
         </div>
         <p className="shrink-0 text-sm font-black text-slate-900">
-          {promptIndex}
+          {formatScore(item.score)}
           <span className="text-slate-400">/10</span>
         </p>
       </div>
@@ -360,17 +361,17 @@ function ListCard({ title, items, tone }: { title: string; items: string[]; tone
 function buildReport(feedback: CharacterFeedback | undefined, character: Character, finalScore: number) {
   const rubricScores =
     feedback?.rubricScores && feedback.rubricScores.length > 0
-      ? feedback.rubricScores
+      ? feedback.rubricScores.map(normalizeRubricItemToTen)
       : (character.evaluationRubric ?? []).map((item) => ({
           label: item.label,
-          points: item.points,
+          points: RUBRIC_ITEM_MAX_SCORE,
           score: 0,
           criteria: item.criteria,
           evidence: "저지 모델 평가가 아직 완료되지 않았습니다.",
           comment: "피드백 재요청을 눌러 다시 채점할 수 있습니다.",
         }));
-  const max = feedback?.maxRubricScore ?? rubricScores.reduce((sum, item) => sum + item.points, 0);
-  const total = feedback?.totalRubricScore ?? rubricScores.reduce((sum, item) => sum + item.score, 0);
+  const max = rubricScores.reduce((sum, item) => sum + item.points, 0);
+  const total = rubricScores.reduce((sum, item) => sum + item.score, 0);
 
   return {
     rubricScores,
@@ -387,6 +388,19 @@ function buildReport(feedback: CharacterFeedback | undefined, character: Charact
 
 function formatScore(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function normalizeRubricItemToTen(item: RubricFeedbackItem): RubricFeedbackItem {
+  const score =
+    item.points > 0 && item.points !== RUBRIC_ITEM_MAX_SCORE
+      ? (item.score / item.points) * RUBRIC_ITEM_MAX_SCORE
+      : item.score;
+
+  return {
+    ...item,
+    points: RUBRIC_ITEM_MAX_SCORE,
+    score: Math.round(Math.min(RUBRIC_ITEM_MAX_SCORE, Math.max(0, score)) * 10) / 10,
+  };
 }
 
 function gradeFromRatio(ratio: number) {
