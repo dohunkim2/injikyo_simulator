@@ -55,6 +55,7 @@ export function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
@@ -106,8 +107,16 @@ export function AdminDashboard() {
       setMessage(payload.message ?? "");
       setLoading(false);
 
-      setSelectedCharacterId((current) => current ?? nextSessions[0]?.characterId ?? null);
-      setSelectedRunId((current) => current ?? nextSessions[0]?.runId ?? null);
+      setSelectedCharacterId((current) =>
+        current && nextSessions.some((session) => session.characterId === current)
+          ? current
+          : nextSessions[0]?.characterId ?? null,
+      );
+      setSelectedRunId((current) =>
+        current && nextSessions.some((session) => session.runId === current)
+          ? current
+          : nextSessions[0]?.runId ?? null,
+      );
     } catch (error) {
       setSessions([]);
       setSelectedCharacterId(null);
@@ -199,6 +208,60 @@ export function AdminDashboard() {
       setMessage(error instanceof Error ? error.message : "로그 삭제에 실패했습니다.");
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleDeleteSelectedSession = async () => {
+    if (!detail || deletingRunId) return;
+
+    const confirmed = window.confirm(
+      `${detail.nickname}님의 "${detail.characterName}" 세션 1건만 삭제할까요? 메시지와 인바디 기록도 함께 삭제됩니다.`,
+    );
+
+    if (!confirmed) return;
+
+    const runId = detail.runId;
+    setDeletingRunId(runId);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/sessions/${runId}`, { method: "DELETE" });
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        deletedRunId?: string;
+        error?: string;
+      } | null;
+
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "세션 삭제에 실패했습니다.");
+      }
+
+      const nextSessions = sessions.filter((session) => session.runId !== runId);
+      const nextSelected =
+        nextSessions.find((session) => session.characterId === detail.characterId)?.runId ??
+        nextSessions[0]?.runId ??
+        null;
+
+      setSessions(nextSessions);
+      setSelectedRunId(nextSelected);
+      setSelectedCharacterId(
+        nextSelected
+          ? nextSessions.find((session) => session.runId === nextSelected)?.characterId ?? null
+          : nextSessions[0]?.characterId ?? null,
+      );
+      setDetail(null);
+      setFeedbackOpen(false);
+      setMessage(`${detail.nickname}님의 세션 1건을 삭제했습니다.`);
+      await loadSessions();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "세션 삭제에 실패했습니다.");
+    } finally {
+      setDeletingRunId(null);
     }
   };
 
@@ -335,19 +398,29 @@ export function AdminDashboard() {
                     </p>
                     <p className="mt-1 text-xs text-slate-400">유저 ID: {detail.playerId}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">상태</p>
-                      <p className="font-bold">{detail.status === "completed" ? "완료" : "진행 중"}</p>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                        <p className="text-xs text-slate-400">상태</p>
+                        <p className="font-bold">{detail.status === "completed" ? "완료" : "진행 중"}</p>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                        <p className="text-xs text-slate-400">현재 점수</p>
+                        <p className={`font-bold ${scoreTone(detail.currentAffection)}`}>{detail.currentAffection}</p>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                        <p className="text-xs text-slate-400">턴</p>
+                        <p className="font-bold">{detail.turnsUsed}</p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">현재 점수</p>
-                      <p className={`font-bold ${scoreTone(detail.currentAffection)}`}>{detail.currentAffection}</p>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">턴</p>
-                      <p className="font-bold">{detail.turnsUsed}</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelectedSession}
+                      disabled={deletingRunId === detail.runId}
+                      className="w-full rounded-2xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 ring-1 ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      {deletingRunId === detail.runId ? "세션 삭제 중..." : "이 세션 삭제"}
+                    </button>
                   </div>
                 </div>
 

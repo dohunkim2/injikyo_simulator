@@ -777,6 +777,18 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
   };
 }
 
+export async function deleteAdminSession(runId: string): Promise<{ deleted: boolean }> {
+  await ensureTables();
+
+  const result = await sql<{ id: string }>`
+    DELETE FROM conversation_runs
+    WHERE id = ${runId}
+    RETURNING id::text
+  `;
+
+  return { deleted: result.rows.length > 0 };
+}
+
 export async function saveFeedbackForRun(
   runId: string,
   feedback: CharacterFeedback,
