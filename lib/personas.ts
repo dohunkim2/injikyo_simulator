@@ -11,6 +11,8 @@ function mergeCharacter(base: Character, override?: CharacterConfig): Character 
     ...base,
     ...override,
     id: base.id,
+    profileImage: base.profileImage,
+    imageStages: base.imageStages,
   });
 }
 
