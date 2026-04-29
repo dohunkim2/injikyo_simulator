@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PersonaSettings } from "@/components/admin/PersonaSettings";
@@ -35,6 +36,10 @@ function scoreTone(score: number) {
   if (score >= 80) return "text-emerald-600";
   if (score >= 60) return "text-amber-600";
   return "text-rose-600";
+}
+
+function shortId(value: string) {
+  return value.length > 10 ? `${value.slice(0, 8)}...` : value;
 }
 
 export function AdminDashboard() {
@@ -196,9 +201,14 @@ export function AdminDashboard() {
               페르소나를 고르면 해당 과제를 수행한 유저와 현재 점수, 대화 내역을 확인합니다.
             </p>
           </div>
-          <button onClick={handleLogout} className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
-            로그아웃
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/" className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
+              홈으로
+            </Link>
+            <button onClick={handleLogout} className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">
+              로그아웃
+            </button>
+          </div>
         </header>
 
         <div className="flex gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-black/5">
@@ -295,7 +305,10 @@ export function AdminDashboard() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold">{session.nickname}</p>
+                    <div>
+                      <p className="font-semibold">{session.nickname}</p>
+                      <p className="mt-0.5 text-[11px] opacity-60">ID {shortId(session.playerId)}</p>
+                    </div>
                     <span
                       className={`rounded-full px-2 py-1 text-[11px] font-bold ${
                         session.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"
@@ -330,6 +343,7 @@ export function AdminDashboard() {
                     <p className="mt-1 text-sm text-slate-500">
                       시작 {formatTime(detail.startedAt)} · 최근 {formatTime(detail.lastMessageAt)}
                     </p>
+                    <p className="mt-1 text-xs text-slate-400">유저 ID: {detail.playerId}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center text-sm">
                     <div className="rounded-2xl bg-slate-50 px-3 py-2">

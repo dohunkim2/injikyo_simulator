@@ -13,7 +13,7 @@ export default function ResultPage() {
   const params = useParams<{ characterId: string }>();
   const defaultCharacter = useMemo(() => getCharacterById(params.characterId ?? ""), [params.characterId]);
   const [character, setCharacter] = useState<Character | null>(defaultCharacter);
-  const [saved] = useState(() => storage.load());
+  const [saved, setSaved] = useState(() => storage.load());
 
   useEffect(() => {
     setCharacter(defaultCharacter);
@@ -30,6 +30,12 @@ export default function ResultPage() {
 
     void loadPersona();
   }, [defaultCharacter, params.characterId]);
+
+  useEffect(() => {
+    setSaved(storage.load());
+    const interval = window.setInterval(() => setSaved(storage.load()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const record = useMemo(() => {
     if (!character) return undefined;

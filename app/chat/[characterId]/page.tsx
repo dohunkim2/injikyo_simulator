@@ -259,16 +259,16 @@ function ChatScreen({ character }: { character: Character }) {
   };
 
   return (
-    <main className="relative min-h-screen bg-slate-900 text-slate-900">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
-        <aside className="relative flex min-h-[42vh] flex-col justify-end overflow-hidden bg-slate-950 p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:p-8">
+    <main className="relative h-screen overflow-hidden bg-slate-900 text-slate-900">
+      <div className="mx-auto grid h-screen max-w-7xl gap-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
+        <aside className="relative hidden h-screen flex-col justify-end overflow-hidden bg-slate-950 p-5 text-white lg:flex lg:p-8">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#38bdf8_0,transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.2),rgba(15,23,42,0.95))]" />
           <Image
             src={sceneImage}
             alt={character.name}
             fill
             sizes="(min-width: 1024px) 45vw, 100vw"
-            className="object-cover opacity-85"
+            className="object-contain object-center opacity-85"
             priority
             onError={() => setSceneImage("/characters/default-avatar.svg")}
           />
@@ -279,12 +279,14 @@ function ChatScreen({ character }: { character: Character }) {
             </p>
             <h1 className="mt-3 text-3xl font-black">{character.name}</h1>
             <p className="mt-1 text-sm text-white/65">{character.occupation}</p>
-            <p className="mt-4 text-sm leading-6 text-white/75">{character.situation}</p>
+            <p className="mt-4 max-h-32 overflow-y-auto text-sm leading-6 text-white/75 lg:max-h-40">
+              {character.situation}
+            </p>
           </div>
         </aside>
 
-        <div className="flex min-h-screen flex-col bg-[#B2C7D9]">
-        <header className="sticky top-0 z-10 flex items-center gap-3 bg-[#a9bfd2] px-4 py-3 shadow-sm">
+        <div className="flex h-screen min-h-0 flex-col bg-[#B2C7D9]">
+        <header className="z-10 flex shrink-0 items-center gap-3 bg-[#a9bfd2] px-4 py-3 shadow-sm">
           <button
             onClick={() => router.push("/")}
             className="rounded-full bg-white/70 p-2 text-slate-700"
@@ -292,6 +294,9 @@ function ChatScreen({ character }: { character: Character }) {
           >
             <ChevronLeft size={18} />
           </button>
+          <Link href="/" className="rounded-full bg-white/60 px-3 py-2 text-xs font-semibold text-slate-700">
+            홈
+          </Link>
           <Image
             src={sceneImage}
             alt={character.name}
@@ -306,7 +311,7 @@ function ChatScreen({ character }: { character: Character }) {
           </div>
         </header>
 
-        <div className="sticky top-[68px] z-10 space-y-2 px-4 py-3">
+        <div className="z-10 shrink-0 space-y-2 px-4 py-3">
           <StatusMessage message={chatState.statusMessage} />
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <AffectionGauge
@@ -318,7 +323,7 @@ function ChatScreen({ character }: { character: Character }) {
           </div>
         </div>
 
-        <section className="flex-1 space-y-4 px-4 pb-6 pt-2">
+        <section className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-2">
           <div className="mx-auto w-fit rounded-full bg-black/10 px-3 py-1 text-xs text-slate-700">
             오늘
           </div>

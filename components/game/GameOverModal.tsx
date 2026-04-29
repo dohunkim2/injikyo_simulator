@@ -13,7 +13,7 @@ export function GameOverModal({ open, success, characterId, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
       <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-xl">
         <h2 className="mt-4 text-2xl font-bold text-slate-900">
           {success ? "과제 성공!" : "이번엔 아쉽다"}
