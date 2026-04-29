@@ -62,7 +62,10 @@ function resolveDynamicChange(
   );
 }
 
-function inferRedFlagPenalty(characterId: string, userMessage: string) {
+function inferRedFlagPenalty(
+  characterId: string,
+  userMessage: string,
+): { penalty: number; matchedPattern: string } | undefined {
   const normalized = userMessage.replace(/\s+/g, " ").trim().toLowerCase();
 
   const redFlagsByCharacter: Record<string, Array<{ patterns: string[]; penalty: number }>> = {
@@ -116,7 +119,12 @@ function inferRedFlagPenalty(characterId: string, userMessage: string) {
     rule.patterns.some((pattern) => normalized.includes(pattern)),
   );
 
-  return matchedRule?.penalty;
+  if (!matchedRule) return undefined;
+
+  const matchedPattern =
+    matchedRule.patterns.find((pattern) => normalized.includes(pattern)) ?? "";
+
+  return { penalty: matchedRule.penalty, matchedPattern };
 }
 
 export function resolveTurnStatus(args: {
@@ -129,11 +137,11 @@ export function resolveTurnStatus(args: {
 }): StatusUpdate {
   const { character, previousAffection, nextTurn, status } = args;
   const dynamicChange = resolveDynamicChange(args.change, nextTurn, character.maxTurns, status);
-  const redFlagPenalty = args.userMessage
+  const redFlagInfo = args.userMessage
     ? inferRedFlagPenalty(character.id, args.userMessage)
     : undefined;
   const change =
-    redFlagPenalty === undefined ? dynamicChange : Math.min(dynamicChange, redFlagPenalty);
+    redFlagInfo === undefined ? dynamicChange : Math.min(dynamicChange, redFlagInfo.penalty);
 
   const affection = clamp(
     previousAffection + change,
@@ -144,6 +152,14 @@ export function resolveTurnStatus(args: {
   const success = affection >= character.successThreshold;
   const exhaustedTurns = nextTurn >= character.maxTurns;
   const gameOver = exhaustedTurns;
+
+  console.log(
+    `[score] character=${character.id} turn=${nextTurn} prev=${previousAffection} aiChange=${args.change} dynChange=${dynamicChange} redFlag=${
+      redFlagInfo ? `"${redFlagInfo.matchedPattern}"(${redFlagInfo.penalty})` : "-"
+    } finalChange=${change} next=${affection} success=${success} gameOver=${gameOver} userMsg=${JSON.stringify(
+      (args.userMessage ?? "").slice(0, 80),
+    )}`,
+  );
 
   return {
     affection,

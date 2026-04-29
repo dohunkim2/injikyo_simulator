@@ -67,6 +67,13 @@ export async function POST(request: Request) {
     });
 
     const { message, aiStatus } = parseAIResponse(raw);
+    console.log(
+      `[chat] character=${body.characterId} turn=${body.currentTurn + 1} hasStatusJson=${/STATUS:\s*\{/.test(
+        raw,
+      )} parsedChange=${aiStatus.change} parsedStatus=${JSON.stringify(aiStatus.status)} rawTail=${JSON.stringify(
+        raw.slice(-160),
+      )}`,
+    );
     const status = resolveTurnStatus({
       character,
       previousAffection: body.currentAffection,
