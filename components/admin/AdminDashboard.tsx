@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { AdminSessionDetail, AdminSessionSummary, RubricFeedbackItem } from "@/lib/types";
+import type {
+  AdminSessionDetail,
+  AdminSessionSummary,
+  CharacterFeedback,
+  RubricFeedbackItem,
+} from "@/lib/types";
 
 type SessionsResponse = {
   configured: boolean;
@@ -56,6 +61,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
+  const [regeneratingRunId, setRegeneratingRunId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
@@ -265,6 +271,67 @@ export function AdminDashboard() {
     }
   };
 
+  const handleRegenerateFeedback = async () => {
+    if (!detail || regeneratingRunId) return;
+
+    if (detail.messages.length === 0) {
+      setMessage("대화 메시지가 없어 인바디를 재생성할 수 없습니다.");
+      return;
+    }
+
+    setRegeneratingRunId(detail.runId);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: detail.characterId,
+          runId: detail.runId,
+          messages: detail.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+            timestamp: message.timestamp,
+          })),
+          success: detail.success,
+          finalAffection: detail.status === "completed" ? detail.finalAffection : detail.currentAffection,
+          turnsUsed: detail.turnsUsed,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | (Partial<CharacterFeedback> & { error?: string })
+        | null;
+
+      if (!response.ok || !payload) {
+        throw new Error("인바디 재생성에 실패했습니다.");
+      }
+
+      if (payload.error) {
+        throw new Error(payload.error ?? "인바디 재생성에 실패했습니다.");
+      }
+
+      const feedback = payload as CharacterFeedback;
+
+      if (
+        feedback.summary === "저지 재요청 필요" ||
+        feedback.judgeComment?.includes("저지 모델 응답을 받지 못해")
+      ) {
+        throw new Error(feedback.judgeComment ?? "저지 모델 응답을 받지 못했습니다.");
+      }
+
+      setDetail((current) => (current && current.runId === detail.runId ? { ...current, feedback } : current));
+      setFeedbackOpen(true);
+      setMessage(`${detail.nickname}님의 인바디를 재생성했습니다.`);
+      await loadDetail(detail.runId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "인바디 재생성에 실패했습니다.");
+    } finally {
+      setRegeneratingRunId(null);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900">
       <div className="mx-auto max-w-7xl space-y-5">
@@ -425,11 +492,7 @@ export function AdminDashboard() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white">
-                  <button
-                    type="button"
-                    onClick={() => setFeedbackOpen((current) => !current)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                  >
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         인바디 결과
@@ -449,8 +512,24 @@ export function AdminDashboard() {
                           : "이 세션에는 저지 모델 결과가 저장되지 않았습니다."}
                       </p>
                     </div>
-                    <span className="text-xs font-bold text-slate-500">{feedbackOpen ? "닫기 ▲" : "열기 ▼"}</span>
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRegenerateFeedback}
+                        disabled={regeneratingRunId === detail.runId}
+                        className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 ring-1 ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {regeneratingRunId === detail.runId ? "재생성 중..." : "인바디 재생성"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackOpen((current) => !current)}
+                        className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600"
+                      >
+                        {feedbackOpen ? "닫기 ▲" : "열기 ▼"}
+                      </button>
+                    </div>
+                  </div>
                   {feedbackOpen ? (
                     <div className="border-t border-slate-100 p-3">
                       {detail.feedback ? (
