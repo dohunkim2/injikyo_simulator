@@ -37,6 +37,10 @@ function scoreTone(score: number) {
   return "text-rose-600";
 }
 
+function formatScore(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
 function shortId(value: string) {
   return value.length > 10 ? `${value.slice(0, 8)}...` : value;
 }
@@ -507,6 +511,7 @@ function InBodyReport({ feedback }: { feedback: NonNullable<AdminSessionDetail["
 
 function RubricRow({ item }: { item: RubricFeedbackItem }) {
   const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
+  const promptIndex = formatScore(ratio / 10);
   return (
     <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
       <div className="flex items-start justify-between gap-3">
@@ -517,8 +522,8 @@ function RubricRow({ item }: { item: RubricFeedbackItem }) {
           ) : null}
         </div>
         <p className="shrink-0 text-xs font-black text-slate-900">
-          {item.score}
-          <span className="text-slate-400">/{item.points}</span>
+          {promptIndex}
+          <span className="text-slate-400">/10</span>
         </p>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
