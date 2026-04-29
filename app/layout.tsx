@@ -8,8 +8,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "썸톡 시뮬레이터",
-  description: "카카오톡 스타일 AI 연애 시뮬레이션 앱",
+  title: "Persona Prompt Lab",
+  description: "페르소나 LLM과 대화하며 프롬프트 대응 능력을 훈련하는 시뮬레이션",
 };
 
 export default function RootLayout({

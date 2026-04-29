@@ -5,6 +5,12 @@ export type AffectionRule = {
   range: [number, number];
 };
 
+export type EvaluationRubricItem = {
+  label: string;
+  points: number;
+  criteria: string;
+};
+
 export interface CharacterConfig {
   id: string;
   name: string;
@@ -16,6 +22,14 @@ export interface CharacterConfig {
   speechStyle: string;
   situation: string;
   mission: string;
+  openingLine?: string;
+  scoreLabel?: string;
+  theory?: string;
+  personaBrief?: string;
+  initialState?: string;
+  successCriteria?: string;
+  failureCriteria?: string;
+  evaluationRubric?: EvaluationRubricItem[];
   difficulty: 1 | 2 | 3;
   model?: string;
   startAffection?: number;
@@ -44,6 +58,11 @@ export interface Message {
   timestamp: number;
 }
 
+export interface StoredMessage extends Message {
+  id?: string;
+  messageIndex: number;
+}
+
 export interface AIStatusPayload {
   change: number;
   status: string;
@@ -67,6 +86,7 @@ export interface ChatState {
   statusMessage: string;
   startedAt: number;
   endedAt?: number;
+  serverRunId?: string;
 }
 
 export interface CharacterFeedback {
@@ -77,6 +97,22 @@ export interface CharacterFeedback {
   bestLine: string;
   worstLine: string;
   summary: string;
+  rubricScores?: RubricFeedbackItem[];
+  totalRubricScore?: number;
+  maxRubricScore?: number;
+  grade?: "S" | "A" | "B" | "C" | "D" | "F";
+  strengths?: string[];
+  improvements?: string[];
+  judgeComment?: string;
+}
+
+export interface RubricFeedbackItem {
+  label: string;
+  points: number;
+  score: number;
+  criteria: string;
+  evidence: string;
+  comment: string;
 }
 
 export interface PlayerProfile {
@@ -93,6 +129,35 @@ export interface LeaderboardEntry {
   bestAffection: number;
   averageAffection: number;
   latestPlayedAt: string;
+}
+
+export type SessionStatus = "in_progress" | "completed";
+
+export interface AdminSessionSummary {
+  runId: string;
+  playerId: string;
+  nickname: string;
+  characterId: string;
+  characterName: string;
+  status: SessionStatus;
+  success: boolean;
+  currentAffection: number;
+  finalAffection: number;
+  turnsUsed: number;
+  messageCount: number;
+  startedAt: string;
+  completedAt: string | null;
+  lastMessageAt: string;
+}
+
+export interface AdminSessionDetail extends AdminSessionSummary {
+  messages: StoredMessage[];
+}
+
+export interface PersonaConfigRecord {
+  characterId: string;
+  config: CharacterConfig;
+  updatedAt: string;
 }
 
 export interface SessionSaveStatus {

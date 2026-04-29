@@ -3,6 +3,8 @@
 import { SendHorizontal } from "lucide-react";
 import { FormEvent, KeyboardEvent } from "react";
 
+import { GAME } from "@/lib/constants";
+
 type Props = {
   value: string;
   disabled?: boolean;
@@ -17,6 +19,10 @@ export function ChatInput({ value, disabled, onChange, onSubmit }: Props) {
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
+
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       onSubmit();
@@ -36,6 +42,7 @@ export function ChatInput({ value, disabled, onChange, onSubmit }: Props) {
       <textarea
         value={value}
         disabled={disabled}
+        maxLength={GAME.MAX_MESSAGE_CHARS}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         rows={1}

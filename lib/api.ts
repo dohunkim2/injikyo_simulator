@@ -22,9 +22,9 @@ type OpenRouterResponse = {
   };
 };
 
-export async function openRouterChat(
-  payload: OpenRouterPayload,
-): Promise<string> {
+import { GAME } from "./constants";
+
+export async function openRouterChat(payload: OpenRouterPayload): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
@@ -36,11 +36,18 @@ export async function openRouterChat(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://vercel.app",
+      "HTTP-Referer": process.env.APP_URL ?? "https://vercel.app",
       "X-Title": "dating-sim",
     },
     body: JSON.stringify(payload),
     cache: "no-store",
+    signal: AbortSignal.timeout(GAME.OPENROUTER_TIMEOUT_MS),
+  }).catch((error) => {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new Error("AI 응답 시간이 초과되었습니다.");
+    }
+
+    throw error;
   });
 
   const data = (await response.json()) as OpenRouterResponse;

@@ -1,31 +1,33 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import * as z from "zod";
 
 import { openRouterChat } from "@/lib/api";
-import { getCharacterById } from "@/lib/characters";
 import { GAME } from "@/lib/constants";
+import { getPersonaById } from "@/lib/personas";
 import { buildSystemPrompt } from "@/lib/prompt-builder";
 import { resolveTurnStatus } from "@/lib/scoring";
 import { parseAIResponse } from "@/lib/status-parser";
 
+export const maxDuration = 30;
+
 const messageSchema = z.object({
   role: z.union([z.literal("user"), z.literal("assistant")]),
-  content: z.string().min(1),
+  content: z.string().min(1).max(GAME.MAX_MESSAGE_CHARS),
   timestamp: z.number().optional(),
 });
 
 const requestSchema = z.object({
   characterId: z.string().min(1),
-  messages: z.array(messageSchema),
-  newMessage: z.string().min(1),
-  currentAffection: z.number(),
+  messages: z.array(messageSchema).max(GAME.MAX_MESSAGES_PER_REQUEST),
+  newMessage: z.string().min(1).max(GAME.MAX_MESSAGE_CHARS),
+  currentAffection: z.number().min(0).max(100),
   currentTurn: z.number().int().min(0),
 });
 
 export async function POST(request: Request) {
   try {
     const body = requestSchema.parse(await request.json());
-    const character = getCharacterById(body.characterId);
+    const character = await getPersonaById(body.characterId);
 
     if (!character) {
       return NextResponse.json({ error: "캐릭터를 찾을 수 없습니다." }, { status: 404 });
@@ -55,11 +57,15 @@ export async function POST(request: Request) {
       change: aiStatus.change,
       status: aiStatus.status,
       nextTurn: body.currentTurn + 1,
+      userMessage: body.newMessage,
     });
 
     return NextResponse.json({ message, status });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "채팅 요청 처리에 실패했습니다.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "잘못된 요청 형식입니다." }, { status: 400 });
+    }
+
+    return NextResponse.json({ error: "채팅 요청 처리에 실패했습니다." }, { status: 500 });
   }
 }

@@ -35,9 +35,9 @@ export function LeaderboardPanel() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Ranking</p>
-          <h2 className="mt-1 text-xl font-bold text-slate-900">공용 호감도 랭킹</h2>
+          <h2 className="mt-1 text-xl font-bold text-slate-900">전체 점수 랭킹</h2>
         </div>
-        <span className="rounded-full bg-[#FEE500] px-3 py-1 text-xs font-bold text-slate-900">TOP 10</span>
+        <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-800">전체</span>
       </div>
 
       {loading ? <p className="mt-4 text-sm text-slate-500">랭킹 불러오는 중...</p> : null}
@@ -61,8 +61,8 @@ export function LeaderboardPanel() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-bold text-pink-500">{entry.bestAffection}</p>
-              <p className="text-[11px] text-slate-400">최고 호감도</p>
+              <p className="text-sm font-bold text-cyan-600">{entry.bestAffection}</p>
+              <p className="text-[11px] text-slate-400">최고 점수</p>
             </div>
           </div>
         ))}

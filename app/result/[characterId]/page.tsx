@@ -2,16 +2,34 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { LeaderboardPanel } from "@/components/game/LeaderboardPanel";
 import { getCharacterById } from "@/lib/characters";
 import { storage } from "@/lib/storage";
+import type { Character, CharacterFeedback, RubricFeedbackItem } from "@/lib/types";
 
 export default function ResultPage() {
   const params = useParams<{ characterId: string }>();
-  const character = useMemo(() => getCharacterById(params.characterId ?? ""), [params.characterId]);
+  const defaultCharacter = useMemo(() => getCharacterById(params.characterId ?? ""), [params.characterId]);
+  const [character, setCharacter] = useState<Character | null>(defaultCharacter);
   const [saved] = useState(() => storage.load());
+
+  useEffect(() => {
+    setCharacter(defaultCharacter);
+
+    if (!params.characterId) return;
+
+    const loadPersona = async () => {
+      const response = await fetch(`/api/personas/${params.characterId}`, { cache: "no-store" });
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as { persona: Character };
+      setCharacter(payload.persona);
+    };
+
+    void loadPersona();
+  }, [defaultCharacter, params.characterId]);
 
   const record = useMemo(() => {
     if (!character) return undefined;
@@ -34,6 +52,7 @@ export default function ResultPage() {
 
   const { chatState, feedback } = record;
   const sync = record.serverSync;
+  const report = buildReport(feedback, character, chatState.affection);
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] px-4 py-8 text-slate-900">
@@ -43,9 +62,11 @@ export default function ResultPage() {
             chatState.isSuccess ? "bg-emerald-500" : "bg-rose-500"
           }`}
         >
-          <p className="text-sm font-medium text-white/75">{character.name} 공략 결과</p>
+          <p className="text-sm font-medium text-white/75">{character.name} 과제 결과</p>
           <h1 className="mt-2 text-3xl font-bold">{chatState.isSuccess ? "성공했어요" : "이번엔 실패했어요"}</h1>
-          <p className="mt-3 text-sm text-white/90">최종 호감도 {chatState.affection} / 100</p>
+          <p className="mt-3 text-sm text-white/90">
+            최종 {character.scoreLabel ?? "성공 점수"} {chatState.affection} / 100
+          </p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
@@ -53,14 +74,53 @@ export default function ResultPage() {
           <HighlightCard title="Worst Line" value={feedback?.worstLine ?? "기록 없음"} />
         </section>
 
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <p className="text-sm font-semibold text-slate-400">한줄 요약</p>
-          <p className="mt-3 text-lg font-semibold text-slate-900">{feedback?.summary ?? "결과를 정리하는 중이에요."}</p>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            사용한 턴 수 {chatState.turnCount} / {chatState.maxTurns}
-          </p>
+        <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-black/5">
+          <div className="border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">Conversation InBody</p>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold">대화 결과표</h2>
+                <p className="mt-1 text-sm text-white/65">{feedback?.summary ?? "결과를 정리하는 중이에요."}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-5xl font-black leading-none">{report.grade}</p>
+                <p className="mt-1 text-xs text-white/60">Judge Grade</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-5 md:grid-cols-4">
+            <MetricCard label={character.scoreLabel ?? "성공 점수"} value={`${chatState.affection}`} suffix="/100" />
+            <MetricCard label="루브릭 총점" value={report.total} suffix={`/${report.max}`} />
+            <MetricCard label="사용 턴" value={`${chatState.turnCount}`} suffix={`/${chatState.maxTurns}`} />
+            <MetricCard label="판정" value={chatState.isSuccess ? "성공" : "실패"} />
+          </div>
+
+          <div className="space-y-3 px-5 pb-5">
+            <p className="text-sm font-semibold text-slate-900">항목별 근육량</p>
+            {report.rubricScores.length > 0 ? (
+              report.rubricScores.map((item) => <RubricScoreRow key={item.label} item={item} />)
+            ) : (
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                저장된 루브릭 상세 평가가 없습니다. 다음 완료 기록부터 저지 모델 평가가 표시됩니다.
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">
+            <ListCard title="강점" items={report.strengths} tone="good" />
+            <ListCard title="개선 포인트" items={report.improvements} tone="warn" />
+          </div>
+
+          <div className="px-5 pb-5">
+            <div className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-900">
+              <b>Judge Comment</b>
+              <p className="mt-1">{report.judgeComment}</p>
+            </div>
+          </div>
+
           <div
-            className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+            className={`mx-5 mb-5 rounded-2xl px-4 py-3 text-sm ${
               sync?.synced
                 ? "bg-emerald-50 text-emerald-700"
                 : "bg-amber-50 text-amber-700"
@@ -113,4 +173,98 @@ function HighlightCard({ title, value }: { title: string; value: string }) {
       <p className="mt-3 text-sm leading-6 text-slate-800">{value}</p>
     </div>
   );
+}
+
+function MetricCard({ label, value, suffix = "" }: { label: string; value: string; suffix?: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">
+        {value}
+        <span className="ml-1 text-sm font-semibold text-slate-400">{suffix}</span>
+      </p>
+    </div>
+  );
+}
+
+function RubricScoreRow({ item }: { item: RubricFeedbackItem }) {
+  const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-900">{item.label}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{item.criteria}</p>
+        </div>
+        <p className="shrink-0 text-sm font-black text-slate-900">
+          {item.score}
+          <span className="text-slate-400">/{item.points}</span>
+        </p>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-600" style={{ width: `${ratio}%` }} />
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-600">
+        <b className="text-slate-800">근거</b> {item.evidence}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{item.comment}</p>
+    </div>
+  );
+}
+
+function ListCard({ title, items, tone }: { title: string; items: string[]; tone: "good" | "warn" }) {
+  const toneClass = tone === "good" ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900";
+
+  return (
+    <div className={`rounded-2xl px-4 py-3 ${toneClass}`}>
+      <p className="font-semibold">{title}</p>
+      <ul className="mt-2 space-y-1 text-sm leading-6">
+        {items.map((item) => (
+          <li key={item}>• {item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function buildReport(feedback: CharacterFeedback | undefined, character: Character, finalScore: number) {
+  const rubricScores =
+    feedback?.rubricScores && feedback.rubricScores.length > 0
+      ? feedback.rubricScores
+      : (character.evaluationRubric ?? []).map((item) => ({
+          label: item.label,
+          points: item.points,
+          score: 0,
+          criteria: item.criteria,
+          evidence: "이전 저장 기록에는 상세 저지 평가가 없습니다.",
+          comment: "새로 대화를 완료하면 자동으로 채점됩니다.",
+        }));
+  const max = feedback?.maxRubricScore ?? rubricScores.reduce((sum, item) => sum + item.points, 0);
+  const total = feedback?.totalRubricScore ?? rubricScores.reduce((sum, item) => sum + item.score, 0);
+
+  return {
+    rubricScores,
+    max: formatScore(max),
+    total: formatScore(total),
+    grade: feedback?.grade ?? gradeFromRatio(max > 0 ? total / max : finalScore / 100),
+    strengths: feedback?.strengths?.length ? feedback.strengths : ["대화를 끝까지 진행했습니다."],
+    improvements: feedback?.improvements?.length
+      ? feedback.improvements
+      : ["다음 완료 기록부터 루브릭 기준 개선점이 표시됩니다."],
+    judgeComment: feedback?.judgeComment ?? "저지 모델 상세 평가가 아직 저장되지 않은 기록입니다.",
+  };
+}
+
+function formatScore(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function gradeFromRatio(ratio: number) {
+  if (ratio >= 0.9) return "S";
+  if (ratio >= 0.8) return "A";
+  if (ratio >= 0.7) return "B";
+  if (ratio >= 0.6) return "C";
+  if (ratio >= 0.45) return "D";
+  return "F";
 }

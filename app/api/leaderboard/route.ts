@@ -12,7 +12,7 @@ export async function GET() {
       });
     }
 
-    const entries = await getLeaderboard(10);
+    const entries = await getLeaderboard();
 
     return NextResponse.json({
       configured: true,

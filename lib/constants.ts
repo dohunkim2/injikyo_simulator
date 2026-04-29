@@ -10,12 +10,18 @@ export const GAME = {
   MAX_AFFECTION_CHANGE_PER_TURN: 30,
   AI_MAX_TOKENS: 300,
   AI_TEMPERATURE: 0.8,
-  CHAT_MODEL_FALLBACK: "openai/gpt-4o-mini",
-  FEEDBACK_MODEL: "openai/gpt-4o-mini",
-  ANALYSIS_MODEL: "openai/gpt-4o",
+  MAX_MESSAGE_CHARS: 600,
+  MAX_MESSAGES_PER_REQUEST: 40,
+  OPENROUTER_TIMEOUT_MS: 25_000,
+  CHAT_MODEL_FALLBACK: "deepseek/deepseek-v4-flash",
+  FEEDBACK_MODEL: "deepseek/deepseek-v4-flash",
+  FEEDBACK_MAX_TOKENS: 1400,
+  ANALYSIS_MODEL: "deepseek/deepseek-v4-flash",
 } as const;
 
 export const STORAGE_KEY = "dating-sim-v1";
+export const RESET_LIMIT = 2;
+export const RESET_COUNT_STORAGE_KEY = "dating-sim-reset-count-v1";
 export const DEFAULT_STATUS_MESSAGE = "표정을 읽기 어렵다";
 
 export const COLORS = {

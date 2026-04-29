@@ -1,9 +1,10 @@
 type Props = {
   affection: number;
   change?: number;
+  label?: string;
 };
 
-export function AffectionGauge({ affection, change = 0 }: Props) {
+export function AffectionGauge({ affection, change = 0, label = "성공 점수" }: Props) {
   const isBigMove = Math.abs(change) >= 12;
   const directionColor =
     change > 0 ? "text-pink-500" : change < 0 ? "text-indigo-500" : "text-slate-500";
@@ -15,7 +16,7 @@ export function AffectionGauge({ affection, change = 0 }: Props) {
       }`}
     >
       <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-700">
-        <span>♥ 호감도</span>
+        <span>{label}</span>
         <span className="flex items-center gap-2">
           {change !== 0 ? (
             <span className={`font-bold ${directionColor}`}>

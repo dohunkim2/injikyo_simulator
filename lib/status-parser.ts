@@ -8,13 +8,21 @@ function clampChange(value: number) {
   );
 }
 
+function sanitizeMessage(message: string) {
+  return message
+    .replace(/[\s\n\r]*[([{（][^()[\]{}（）]*[\])}）][\s\n\r]*/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function parseAIResponse(raw: string): {
   message: string;
   aiStatus: AIStatusPayload;
 } {
   const statusPattern = /(?:\|\|\|\s*)?STATUS:\s*(\{[\s\S]*?\})(?:\s*\|\|\|)?/;
   const statusMatch = raw.match(statusPattern);
-  const message = raw.replace(statusPattern, "").trim();
+  const message = sanitizeMessage(raw.replace(statusPattern, "").trim());
 
   if (!statusMatch) {
     return {

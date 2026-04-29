@@ -1,5 +1,5 @@
 import rawCharacters from "@/config/characters.json";
-import { z } from "zod";
+import * as z from "zod";
 
 import { GAME } from "./constants";
 import type { Character, CharacterConfig } from "./types";
@@ -9,7 +9,13 @@ const ruleSchema = z.object({
   range: z.tuple([z.number().int(), z.number().int()]),
 });
 
-const characterConfigSchema = z.object({
+const evaluationRubricItemSchema = z.object({
+  label: z.string().min(1),
+  points: z.number().positive(),
+  criteria: z.string().min(1),
+});
+
+export const characterConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   profileImage: z.string().min(1),
@@ -20,6 +26,14 @@ const characterConfigSchema = z.object({
   speechStyle: z.string().min(1),
   situation: z.string().min(1),
   mission: z.string().min(1),
+  openingLine: z.string().min(1).optional(),
+  scoreLabel: z.string().min(1).optional(),
+  theory: z.string().min(1).optional(),
+  personaBrief: z.string().min(1).optional(),
+  initialState: z.string().min(1).optional(),
+  successCriteria: z.string().min(1).optional(),
+  failureCriteria: z.string().min(1).optional(),
+  evaluationRubric: z.array(evaluationRubricItemSchema).optional(),
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   model: z.string().min(1).optional(),
   startAffection: z.number().int().min(0).max(100).optional(),
@@ -32,14 +46,18 @@ const characterConfigSchema = z.object({
 
 const parsedConfigs = z.array(characterConfigSchema).parse(rawCharacters) as CharacterConfig[];
 
-const characters: Character[] = parsedConfigs.map((character) => ({
-  ...character,
-  model: character.model ?? GAME.CHAT_MODEL_FALLBACK,
-  startAffection: character.startAffection ?? GAME.DEFAULT_START_AFFECTION,
-  successThreshold: character.successThreshold ?? GAME.DEFAULT_SUCCESS_THRESHOLD,
-  failThreshold: character.failThreshold ?? GAME.DEFAULT_FAIL_THRESHOLD,
-  maxTurns: character.maxTurns ?? GAME.DEFAULT_MAX_TURNS,
-}));
+export function normalizeCharacter(character: CharacterConfig): Character {
+  return {
+    ...character,
+    model: character.model ?? GAME.CHAT_MODEL_FALLBACK,
+    startAffection: character.startAffection ?? GAME.DEFAULT_START_AFFECTION,
+    successThreshold: character.successThreshold ?? GAME.DEFAULT_SUCCESS_THRESHOLD,
+    failThreshold: character.failThreshold ?? GAME.DEFAULT_FAIL_THRESHOLD,
+    maxTurns: character.maxTurns ?? GAME.DEFAULT_MAX_TURNS,
+  };
+}
+
+const characters: Character[] = parsedConfigs.map(normalizeCharacter);
 
 export function getCharacters(): Character[] {
   return characters;

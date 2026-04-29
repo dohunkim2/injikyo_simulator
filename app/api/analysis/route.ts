@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import * as z from "zod";
 
 import { openRouterChat } from "@/lib/api";
 import { GAME, STYLE_TYPES } from "@/lib/constants";
 import type { CompletedConversation, StyleAnalysis } from "@/lib/types";
+
+export const maxDuration = 30;
 
 const requestSchema = z.object({
   allConversations: z.array(
@@ -16,12 +18,12 @@ const requestSchema = z.object({
       messages: z.array(
         z.object({
           role: z.union([z.literal("user"), z.literal("assistant")]),
-          content: z.string().min(1),
+          content: z.string().min(1).max(GAME.MAX_MESSAGE_CHARS),
           timestamp: z.number().optional(),
         }),
-      ),
+      ).max(GAME.MAX_MESSAGES_PER_REQUEST),
     }),
-  ),
+  ).max(10),
 });
 
 function gradeFromScore(score: number): StyleAnalysis["overallGrade"] {

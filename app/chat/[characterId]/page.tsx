@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AffectionToast } from "@/components/chat/AffectionToast";
 import { ChatBubble } from "@/components/chat/ChatBubble";
@@ -24,16 +24,35 @@ type ChatApiResponse = {
   status: StatusUpdate;
 };
 
+type SessionStartResponse = SessionSaveStatus;
+
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export default function ChatPage() {
   const params = useParams<{ characterId: string }>();
-  const character = useMemo(
+  const defaultCharacter = useMemo(
     () => getCharacterById(params.characterId ?? ""),
     [params.characterId],
   );
+  const [character, setCharacter] = useState<Character | null>(defaultCharacter);
+
+  useEffect(() => {
+    setCharacter(defaultCharacter);
+
+    if (!params.characterId) return;
+
+    const loadPersona = async () => {
+      const response = await fetch(`/api/personas/${params.characterId}`, { cache: "no-store" });
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as { persona: Character };
+      setCharacter(payload.persona);
+    };
+
+    void loadPersona();
+  }, [defaultCharacter, params.characterId]);
 
   if (!character) {
     return (
@@ -60,6 +79,7 @@ function ChatScreen({ character }: { character: Character }) {
   const [toastValue, setToastValue] = useState<number | null>(null);
   const [showGameOver, setShowGameOver] = useState(false);
   const [headerImage, setHeaderImage] = useState(character.profileImage);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -80,6 +100,10 @@ function ChatScreen({ character }: { character: Character }) {
     const timeout = window.setTimeout(() => setToastValue(null), 1200);
     return () => window.clearTimeout(timeout);
   }, [toastValue]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatState.messages.length, typing, error]);
 
   const finishGame = async (messages: Message[], nextState: ChatState) => {
     try {
@@ -107,6 +131,7 @@ function ChatScreen({ character }: { character: Character }) {
         body: JSON.stringify({
           playerId: playerProfile.playerId,
           nickname: playerProfile.nickname,
+          runId: nextState.serverRunId,
           characterId: character.id,
           characterName: character.name,
           success: nextState.isSuccess,
@@ -134,6 +159,57 @@ function ChatScreen({ character }: { character: Character }) {
     }
   };
 
+  const ensureServerRunId = async (state: ChatState) => {
+    if (state.serverRunId) {
+      return state.serverRunId;
+    }
+
+    const playerProfile = storage.getOrCreatePlayerProfile();
+    const response = await fetch("/api/session/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playerId: playerProfile.playerId,
+        nickname: playerProfile.nickname,
+        characterId: character.id,
+        characterName: character.name,
+        currentAffection: state.affection,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => null)) as SessionStartResponse | null;
+
+    if (!response.ok || !payload?.synced || !payload.runId) {
+      return undefined;
+    }
+
+    return payload.runId;
+  };
+
+  const appendServerMessage = async (args: {
+    runId?: string;
+    message: Message;
+    messageIndex: number;
+    currentAffection: number;
+    turnsUsed: number;
+  }) => {
+    if (!args.runId) return;
+
+    await fetch("/api/session/append", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        runId: args.runId,
+        role: args.message.role,
+        content: args.message.content,
+        timestamp: args.message.timestamp,
+        messageIndex: args.messageIndex,
+        currentAffection: args.currentAffection,
+        turnsUsed: args.turnsUsed,
+      }),
+    }).catch(() => null);
+  };
+
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || typing || chatState.isGameOver) return;
@@ -151,8 +227,23 @@ function ChatScreen({ character }: { character: Character }) {
     const nextMessages = [...previousMessages, userMessage];
     setChatState((current) => (current ? { ...current, messages: nextMessages } : current));
     setInput("");
+    let activeRunId = chatState.serverRunId;
 
     try {
+      const runId = await ensureServerRunId(chatState);
+      activeRunId = runId;
+      const pendingState = { ...chatState, serverRunId: runId, messages: nextMessages };
+      setChatState(pendingState);
+      storage.saveChatState(character.id, pendingState);
+
+      await appendServerMessage({
+        runId,
+        message: userMessage,
+        messageIndex: previousMessages.length,
+        currentAffection: chatState.affection,
+        turnsUsed: chatState.turnCount,
+      });
+
       const requestStartedAt = Date.now();
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -187,6 +278,7 @@ function ChatScreen({ character }: { character: Character }) {
       const finalMessages = [...nextMessages, assistantMessage];
       const nextState: ChatState = {
         ...chatState,
+        serverRunId: runId,
         messages: finalMessages,
         affection: payload.status.affection,
         turnCount: chatState.turnCount + 1,
@@ -199,6 +291,13 @@ function ChatScreen({ character }: { character: Character }) {
 
       setChatState(nextState);
       storage.saveChatState(character.id, nextState);
+      await appendServerMessage({
+        runId,
+        message: assistantMessage,
+        messageIndex: nextMessages.length,
+        currentAffection: nextState.affection,
+        turnsUsed: nextState.turnCount,
+      });
       setToastValue(payload.status.change);
 
       if (payload.status.gameOver) {
@@ -207,7 +306,9 @@ function ChatScreen({ character }: { character: Character }) {
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "메시지 전송에 실패했습니다.");
-      setChatState((current) => (current ? { ...current, messages: previousMessages } : current));
+      const restoredState = { ...chatState, serverRunId: activeRunId, messages: previousMessages };
+      setChatState(restoredState);
+      storage.saveChatState(character.id, restoredState);
     } finally {
       setTyping(false);
     }
@@ -241,7 +342,11 @@ function ChatScreen({ character }: { character: Character }) {
         <div className="sticky top-[68px] z-10 space-y-2 px-4 py-3">
           <StatusMessage message={chatState.statusMessage} />
           <div className="grid grid-cols-[1fr_auto] gap-2">
-            <AffectionGauge affection={chatState.affection} change={chatState.lastChange} />
+            <AffectionGauge
+              affection={chatState.affection}
+              change={chatState.lastChange}
+              label={character.scoreLabel}
+            />
             <TurnCounter turnCount={chatState.turnCount} maxTurns={chatState.maxTurns} />
           </div>
         </div>
@@ -251,18 +356,23 @@ function ChatScreen({ character }: { character: Character }) {
             오늘
           </div>
           <div className="mx-auto max-w-[85%] rounded-2xl bg-[#9FB4C7]/80 px-4 py-3 text-center text-xs leading-5 text-slate-700">
-            {character.name}님과의 대화가 시작되었습니다. 미션은 <b>{character.mission}</b>입니다.
+            {character.name}님과의 대화가 시작되었습니다. 과제는 <b>{character.mission}</b>입니다.
           </div>
-          {chatState.messages.length === 0 ? (
+          {character.openingLine && chatState.messages.length === 0 ? (
             <ChatBubble
               message={{
                 role: "assistant",
-                content: `${character.situation} 먼저 자연스럽게 말을 걸어보세요.`,
+                content: character.openingLine,
                 timestamp: chatState.startedAt,
               }}
               characterName={character.name}
               characterImage={character.profileImage}
             />
+          ) : null}
+          {chatState.messages.length === 0 ? (
+            <div className="mx-auto max-w-[85%] rounded-2xl bg-white/70 px-4 py-3 text-center text-xs leading-5 text-slate-600">
+              상황: {character.situation}
+            </div>
           ) : null}
 
           {chatState.messages.map((message, index) => {
@@ -288,6 +398,7 @@ function ChatScreen({ character }: { character: Character }) {
           {error ? (
             <div className="rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</div>
           ) : null}
+          <div ref={bottomRef} />
         </section>
 
         <ChatInput
