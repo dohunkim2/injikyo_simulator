@@ -6,6 +6,8 @@ import type {
   AdminSessionSummary,
   CharacterConfig,
   CharacterFeedback,
+  CharacterLeaderboard,
+  CharacterLeaderboardEntry,
   LeaderboardEntry,
   Message,
   PersonaConfigRecord,
@@ -559,6 +561,60 @@ export async function getLeaderboard(limit?: number): Promise<LeaderboardEntry[]
     averageAffection: row.average_affection,
     latestPlayedAt: row.latest_played_at,
   }));
+}
+
+export async function getLeaderboardByCharacter(): Promise<CharacterLeaderboard[]> {
+  await ensureTables();
+
+  const result = await sql<{
+    character_id: string;
+    character_name: string;
+    player_id: string;
+    nickname: string;
+    best_affection: number;
+    any_success: boolean;
+    runs_count: number;
+    latest_played_at: string;
+  }>`
+    SELECT
+      r.character_id,
+      r.character_name,
+      p.id AS player_id,
+      p.nickname,
+      MAX(r.final_affection)::int AS best_affection,
+      BOOL_OR(r.success) AS any_success,
+      COUNT(*)::int AS runs_count,
+      MAX(r.created_at)::text AS latest_played_at
+    FROM conversation_runs r
+    JOIN players p ON p.id = r.player_id
+    WHERE r.status = 'completed'
+    GROUP BY r.character_id, r.character_name, p.id, p.nickname
+    ORDER BY r.character_name ASC, best_affection DESC, latest_played_at ASC
+  `;
+
+  const grouped = new Map<string, CharacterLeaderboard>();
+  for (const row of result.rows) {
+    const entry: CharacterLeaderboardEntry = {
+      playerId: row.player_id,
+      nickname: row.nickname,
+      bestAffection: row.best_affection,
+      bestSuccess: row.any_success,
+      runsCount: row.runs_count,
+      latestPlayedAt: row.latest_played_at,
+    };
+    const existing = grouped.get(row.character_id);
+    if (existing) {
+      existing.entries.push(entry);
+    } else {
+      grouped.set(row.character_id, {
+        characterId: row.character_id,
+        characterName: row.character_name,
+        entries: [entry],
+      });
+    }
+  }
+
+  return Array.from(grouped.values());
 }
 
 function toSessionStatus(status: string): SessionStatus {

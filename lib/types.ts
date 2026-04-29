@@ -132,6 +132,21 @@ export interface LeaderboardEntry {
   latestPlayedAt: string;
 }
 
+export interface CharacterLeaderboardEntry {
+  playerId: string;
+  nickname: string;
+  bestAffection: number;
+  bestSuccess: boolean;
+  runsCount: number;
+  latestPlayedAt: string;
+}
+
+export interface CharacterLeaderboard {
+  characterId: string;
+  characterName: string;
+  entries: CharacterLeaderboardEntry[];
+}
+
 export type SessionStatus = "in_progress" | "completed";
 
 export interface AdminSessionSummary {
