@@ -351,13 +351,6 @@ function ChatScreen({ character }: { character: Character }) {
             </p>
             <h1 className="mt-3 text-3xl font-black">{character.name}</h1>
             <p className="mt-1 text-sm text-white/65">{character.occupation}</p>
-            <div className="mt-5 rounded-2xl bg-black/25 px-4 py-3">
-              <p className="text-xs text-white/55">{character.scoreLabel ?? "성공 점수"}</p>
-              <p className="mt-1 text-4xl font-black">
-                {chatState.affection}
-                <span className="ml-1 text-base text-white/50">/100</span>
-              </p>
-            </div>
             <p className="mt-4 text-sm leading-6 text-white/75">{character.situation}</p>
           </div>
         </aside>
