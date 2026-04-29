@@ -73,20 +73,35 @@ export function AdminDashboard() {
   const selectedGroup = personaGroups.find((group) => group.characterId === selectedCharacterId);
 
   const loadSessions = useCallback(async () => {
-    const response = await fetch("/api/admin/sessions", { cache: "no-store" });
+    try {
+      const response = await fetch("/api/admin/sessions", { cache: "no-store" });
 
-    if (response.status === 401) {
-      window.location.href = "/admin/login";
-      return;
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      const payload = (await response.json().catch(() => null)) as SessionsResponse | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.message ?? `관리자 세션 API 오류 (${response.status})`);
+      }
+
+      const nextSessions = payload.sessions ?? [];
+      setSessions(nextSessions);
+      setMessage(payload.message ?? "");
+      setLoading(false);
+
+      setSelectedCharacterId((current) => current ?? nextSessions[0]?.characterId ?? null);
+      setSelectedRunId((current) => current ?? nextSessions[0]?.runId ?? null);
+    } catch (error) {
+      setSessions([]);
+      setSelectedCharacterId(null);
+      setSelectedRunId(null);
+      setDetail(null);
+      setMessage(error instanceof Error ? error.message : "관리자 세션 목록을 불러오지 못했습니다.");
+      setLoading(false);
     }
-
-    const payload = (await response.json()) as SessionsResponse;
-    setSessions(payload.sessions);
-    setMessage(payload.message ?? "");
-    setLoading(false);
-
-    setSelectedCharacterId((current) => current ?? payload.sessions[0]?.characterId ?? null);
-    setSelectedRunId((current) => current ?? payload.sessions[0]?.runId ?? null);
   }, []);
 
   const loadDetail = useCallback(async (runId: string) => {
