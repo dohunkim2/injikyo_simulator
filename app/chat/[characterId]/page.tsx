@@ -19,7 +19,6 @@ import { storage } from "@/lib/storage";
 import type {
   Character,
   CharacterFeedback,
-  CharacterImageStage,
   ChatState,
   Message,
   SessionSaveStatus,
@@ -92,10 +91,6 @@ function ChatScreen({ character }: { character: Character }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const runIdRef = useRef<string | undefined>(undefined);
   const ensureRunPromiseRef = useRef<Promise<string | undefined> | null>(null);
-  const currentImageStage = useMemo(
-    () => getImageStage(character, chatState.affection),
-    [character, chatState.affection],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -175,10 +170,6 @@ function ChatScreen({ character }: { character: Character }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatState.messages.length, typing, error]);
-
-  useEffect(() => {
-    setSceneImage(currentImageStage.image);
-  }, [currentImageStage.image]);
 
   const ensureServerRun = async (currentAffection: number): Promise<string | undefined> => {
     if (runIdRef.current) return runIdRef.current;
@@ -477,7 +468,7 @@ function ChatScreen({ character }: { character: Character }) {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/10" />
           <div className="relative z-10 rounded-[2rem] bg-white/10 p-5 shadow-2xl ring-1 ring-white/15 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
-              {currentImageStage.label}
+              현재 페르소나
             </p>
             <h1 className="mt-3 text-3xl font-black">{character.name}</h1>
             <p className="mt-1 text-sm text-white/65">{character.occupation}</p>
@@ -652,19 +643,3 @@ function AccessGate({
   );
 }
 
-function getImageStage(character: Character, score: number): CharacterImageStage {
-  const stages = character.imageStages?.length
-    ? [...character.imageStages].sort((a, b) => a.minScore - b.minScore)
-    : [
-        {
-          minScore: 0,
-          image: character.profileImage,
-          label: "현재 페르소나",
-        },
-      ];
-
-  return stages.reduce<CharacterImageStage>(
-    (selected, stage) => (score >= stage.minScore ? stage : selected),
-    stages[0],
-  );
-}

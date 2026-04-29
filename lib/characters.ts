@@ -15,17 +15,10 @@ const evaluationRubricItemSchema = z.object({
   criteria: z.string().min(1),
 });
 
-const imageStageSchema = z.object({
-  minScore: z.number().int().min(0).max(100),
-  image: z.string().min(1),
-  label: z.string().min(1),
-});
-
 export const characterConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   profileImage: z.string().min(1),
-  imageStages: z.array(imageStageSchema).optional(),
   age: z.number().int().positive(),
   occupation: z.string().min(1),
   shortDescription: z.string().min(1),
