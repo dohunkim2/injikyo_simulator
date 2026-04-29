@@ -13,7 +13,10 @@ export default function ResultPage() {
   const params = useParams<{ characterId: string }>();
   const defaultCharacter = useMemo(() => getCharacterById(params.characterId ?? ""), [params.characterId]);
   const [character, setCharacter] = useState<Character | null>(defaultCharacter);
-  const [saved, setSaved] = useState(() => storage.load());
+  const [saved, setSaved] = useState<ReturnType<typeof storage.load>>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
 
   useEffect(() => {
     setCharacter(defaultCharacter);
@@ -32,6 +35,7 @@ export default function ResultPage() {
   }, [defaultCharacter, params.characterId]);
 
   useEffect(() => {
+    setHydrated(true);
     setSaved(storage.load());
     const interval = window.setInterval(() => setSaved(storage.load()), 1000);
     return () => window.clearInterval(interval);
@@ -41,7 +45,57 @@ export default function ResultPage() {
     if (!character) return undefined;
     return saved?.characters[character.id];
   }, [character, saved]);
+
+  useEffect(() => {
+    if (!character || !record?.chatState?.isGameOver || record.feedback || feedbackLoading || feedbackError) {
+      return;
+    }
+
+    const generateFeedback = async () => {
+      setFeedbackLoading(true);
+      setFeedbackError("");
+
+      try {
+        const response = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId: character.id,
+            messages: record.chatState.messages,
+            success: record.chatState.isSuccess,
+            finalAffection: record.chatState.affection,
+            turnsUsed: record.chatState.turnCount,
+          }),
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? "결과표 생성에 실패했습니다.");
+        }
+
+        const feedbackPayload = (await response.json()) as CharacterFeedback;
+        storage.saveFeedback(character.id, feedbackPayload);
+        setSaved(storage.load());
+      } catch (error) {
+        setFeedbackError(error instanceof Error ? error.message : "결과표 생성에 실패했습니다.");
+      } finally {
+        setFeedbackLoading(false);
+      }
+    };
+
+    void generateFeedback();
+  }, [character, record, feedbackLoading, feedbackError]);
   
+
+  if (!hydrated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f4f7fb] p-6">
+        <div className="rounded-3xl bg-white p-6 text-center shadow-sm">
+          <p className="font-semibold text-slate-900">결과를 불러오는 중이에요.</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!character || !record?.chatState) {
     return (
@@ -86,7 +140,10 @@ export default function ResultPage() {
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold">대화 결과표</h2>
-                <p className="mt-1 text-sm text-white/65">{feedback?.summary ?? "결과를 정리하는 중이에요."}</p>
+                <p className="mt-1 text-sm text-white/65">
+                  {feedback?.summary ??
+                    (feedbackLoading ? "저지 모델이 결과표를 생성하는 중이에요." : "결과를 정리하는 중이에요.")}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-5xl font-black leading-none">{report.grade}</p>
@@ -111,6 +168,11 @@ export default function ResultPage() {
                 저장된 루브릭 상세 평가가 없습니다. 다음 완료 기록부터 저지 모델 평가가 표시됩니다.
               </div>
             )}
+            {feedbackError ? (
+              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {feedbackError}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">

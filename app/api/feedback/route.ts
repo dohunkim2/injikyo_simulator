@@ -13,7 +13,7 @@ const requestSchema = z.object({
   messages: z.array(
     z.object({
       role: z.union([z.literal("user"), z.literal("assistant")]),
-      content: z.string().min(1).max(GAME.MAX_MESSAGE_CHARS),
+      content: z.string().min(1).max(GAME.MAX_STORED_MESSAGE_CHARS),
       timestamp: z.number().optional(),
     }),
   ).max(GAME.MAX_MESSAGES_PER_REQUEST),

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+import { GAME } from "@/lib/constants";
 import { isDatabaseConfigured, saveCompletedSession } from "@/lib/db";
 
 const requestSchema = z.object({
@@ -15,7 +16,7 @@ const requestSchema = z.object({
   messages: z.array(
     z.object({
       role: z.union([z.literal("user"), z.literal("assistant")]),
-      content: z.string().min(1).max(1200),
+      content: z.string().min(1).max(GAME.MAX_STORED_MESSAGE_CHARS),
       timestamp: z.number(),
     }),
   ),
