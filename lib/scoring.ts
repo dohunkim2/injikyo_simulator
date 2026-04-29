@@ -6,18 +6,47 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function inferZeroChange(status: string) {
-  const positiveKeywords = ["웃", "흥미", "관심", "호감", "편안", "부드", "즐거", "미소", "가까"];
-  const negativeKeywords = ["경직", "차갑", "불편", "부담", "싫", "시큰둥", "어색", "당황", "거리", "굳", "피하"];
+  const positiveKeywords = [
+    "웃",
+    "흥미",
+    "관심",
+    "호감",
+    "편안",
+    "부드",
+    "즐거",
+    "미소",
+    "가까",
+    "풀린",
+    "수긍",
+    "긍정",
+  ];
+  const negativeKeywords = [
+    "경직",
+    "차갑",
+    "불편",
+    "부담",
+    "싫",
+    "시큰둥",
+    "어색",
+    "당황",
+    "거리",
+    "굳",
+    "피하",
+    "한숨",
+    "실망",
+    "짜증",
+  ];
 
   if (positiveKeywords.some((keyword) => status.includes(keyword))) {
-    return 3;
+    return 5;
   }
 
   if (negativeKeywords.some((keyword) => status.includes(keyword))) {
-    return -3;
+    return -5;
   }
 
-  return 0;
+  // 키워드 매칭이 없어도 0은 반환하지 않는다. 미세한 호감 흐름으로 본다.
+  return 5;
 }
 
 function resolveDynamicChange(
