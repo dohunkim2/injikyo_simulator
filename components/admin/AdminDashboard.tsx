@@ -49,6 +49,11 @@ export function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  useEffect(() => {
+    setFeedbackOpen(false);
+  }, [selectedRunId]);
 
   const personaGroups = useMemo(() => {
     const groups = new Map<string, PersonaGroup>();
@@ -340,7 +345,46 @@ export function AdminDashboard() {
                   </div>
                 </div>
 
-                {detail.feedback ? <InBodyReport feedback={detail.feedback} /> : null}
+                <div className="rounded-2xl border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen((current) => !current)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        인바디 결과
+                        {detail.feedback ? (
+                          <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                            저장됨
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+                            미저장
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {detail.feedback
+                          ? "클릭하면 등급, 루브릭, 강점/개선 포인트를 펼칩니다."
+                          : "이 세션에는 저지 모델 결과가 저장되지 않았습니다."}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-slate-500">{feedbackOpen ? "닫기 ▲" : "열기 ▼"}</span>
+                  </button>
+                  {feedbackOpen ? (
+                    <div className="border-t border-slate-100 p-3">
+                      {detail.feedback ? (
+                        <InBodyReport feedback={detail.feedback} />
+                      ) : (
+                        <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                          저지 모델 응답이 서버에 저장되지 않았습니다. 사용자가 결과 페이지에서 &quot;피드백 재요청&quot;을
+                          누르거나, 새로 진행한 세션부터 자동 저장됩니다.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="max-h-[68vh] space-y-3 overflow-y-auto rounded-3xl bg-[#B2C7D9] p-4">
                   {detail.messages.map((message) => {

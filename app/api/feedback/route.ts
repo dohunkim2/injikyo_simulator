@@ -330,11 +330,25 @@ rubricScores는 위 평가 기준의 label을 빠짐없이 포함해야 합니�
 
     const finalFeedback = normalizeFeedback({ parsed, body, character: activeCharacter });
 
-    if (body.runId && isDatabaseConfigured()) {
+    const dbConfigured = isDatabaseConfigured();
+    if (!body.runId) {
+      console.warn(
+        `[feedback] runId 없이 호출됨, DB 저장 건너뜀. character=${body.characterId}`,
+      );
+    } else if (!dbConfigured) {
+      console.warn(`[feedback] DB 미설정, runId=${body.runId} 저장 건너뜀`);
+    } else {
       try {
-        await saveFeedbackForRun(body.runId, finalFeedback);
+        const { updated } = await saveFeedbackForRun(body.runId, finalFeedback);
+        if (!updated) {
+          console.warn(
+            `[feedback] runId=${body.runId}에 해당하는 conversation_runs 행이 없음 (관리자 초기화 직후 또는 런 미생성). 저장 0건.`,
+          );
+        } else {
+          console.log(`[feedback] runId=${body.runId} 인바디 저장 완료`);
+        }
       } catch (saveError) {
-        console.error("Failed to persist judge feedback for run", body.runId, saveError);
+        console.error("[feedback] 저장 실패", body.runId, saveError);
       }
     }
 

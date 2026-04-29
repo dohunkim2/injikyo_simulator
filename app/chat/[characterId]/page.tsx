@@ -324,12 +324,19 @@ function ChatScreen({ character }: { character: Character }) {
         syncedAt: serverSync.syncedAt ?? Date.now(),
       });
 
+      // complete가 새 runId를 만들어 반환했을 수 있으므로 그걸 우선 사용
+      const authoritativeRunId = serverSync.runId ?? runIdRef.current ?? nextState.serverRunId;
+      if (serverSync.runId && serverSync.runId !== runIdRef.current) {
+        runIdRef.current = serverSync.runId;
+      }
+
       try {
         const feedbackResponse = await fetch("/api/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             characterId: character.id,
+            runId: authoritativeRunId,
             messages,
             success: nextState.isSuccess,
             finalAffection: nextState.affection,

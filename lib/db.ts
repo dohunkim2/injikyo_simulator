@@ -313,18 +313,43 @@ export async function completeSession(input: Omit<CompleteSessionInput, "message
   }
 
   await sql`
-    UPDATE conversation_runs
-    SET player_id = ${input.playerId},
-        character_id = ${input.characterId},
-        character_name = ${input.characterName},
-        success = ${input.success},
-        final_affection = ${input.finalAffection},
-        current_affection = ${input.finalAffection},
-        turns_used = ${input.turnsUsed},
-        status = 'completed',
-        completed_at = COALESCE(completed_at, NOW()),
-        last_message_at = NOW()
-    WHERE id = ${input.runId}
+    INSERT INTO conversation_runs (
+      id,
+      player_id,
+      character_id,
+      character_name,
+      success,
+      final_affection,
+      turns_used,
+      status,
+      current_affection,
+      completed_at,
+      last_message_at
+    )
+    VALUES (
+      ${input.runId},
+      ${input.playerId},
+      ${input.characterId},
+      ${input.characterName},
+      ${input.success},
+      ${input.finalAffection},
+      ${input.turnsUsed},
+      'completed',
+      ${input.finalAffection},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      player_id = EXCLUDED.player_id,
+      character_id = EXCLUDED.character_id,
+      character_name = EXCLUDED.character_name,
+      success = EXCLUDED.success,
+      final_affection = EXCLUDED.final_affection,
+      current_affection = EXCLUDED.current_affection,
+      turns_used = EXCLUDED.turns_used,
+      status = 'completed',
+      completed_at = COALESCE(conversation_runs.completed_at, NOW()),
+      last_message_at = NOW()
   `;
 
   return { runId: input.runId };
@@ -703,14 +728,20 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
   };
 }
 
-export async function saveFeedbackForRun(runId: string, feedback: CharacterFeedback) {
+export async function saveFeedbackForRun(
+  runId: string,
+  feedback: CharacterFeedback,
+): Promise<{ updated: boolean }> {
   await ensureTables();
 
-  await sql`
+  const result = await sql<{ id: string }>`
     UPDATE conversation_runs
     SET feedback = ${JSON.stringify(feedback)}::jsonb
     WHERE id = ${runId}
+    RETURNING id::text
   `;
+
+  return { updated: result.rows.length > 0 };
 }
 
 export async function clearAdminConversationLogs() {
