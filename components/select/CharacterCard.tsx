@@ -33,7 +33,7 @@ export function CharacterCard({ character, completed, success }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-lg font-semibold text-slate-900 group-hover:text-slate-950">
-              블라인드 페르소나
+              {objective} 페르소나
             </p>
             <p className="text-sm text-slate-500">목적: {objective}</p>
           </div>

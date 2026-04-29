@@ -18,7 +18,7 @@ type QueryResult<T extends postgres.Row> = {
 };
 
 type PostgresClient = ReturnType<typeof postgres>;
-type PostgresTx = Parameters<Parameters<PostgresClient["begin"]>[0]>[0];
+type PostgresTx = postgres.TransactionSql;
 
 const globalForPostgres = globalThis as unknown as {
   postgresClient?: PostgresClient;
