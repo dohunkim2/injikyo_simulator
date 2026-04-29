@@ -176,7 +176,7 @@ export default function ResultPage() {
           </div>
 
           <div className="space-y-3 px-5 pb-5">
-            <p className="text-sm font-semibold text-slate-900">항목별 근육량</p>
+            <p className="text-sm font-semibold text-slate-900">항목별 프롬프트 지수</p>
             {report.rubricScores.length > 0 ? (
               report.rubricScores.map((item) => <RubricScoreRow key={item.label} item={item} />)
             ) : (
@@ -189,16 +189,14 @@ export default function ResultPage() {
                 {feedbackError}
               </div>
             ) : null}
-            {!feedback ? (
-              <button
-                type="button"
-                disabled={feedbackLoading}
-                onClick={() => void requestFeedback(true)}
-                className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {feedbackLoading ? "저지 모델 재요청 중" : "피드백 재요청"}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              disabled={feedbackLoading}
+              onClick={() => void requestFeedback(true)}
+              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {feedbackLoading ? "저지 모델 재요청 중" : feedback ? "피드백 다시 생성" : "피드백 재요청"}
+            </button>
           </div>
 
           <div className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">
@@ -283,6 +281,7 @@ function MetricCard({ label, value, suffix = "" }: { label: string; value: strin
 
 function RubricScoreRow({ item }: { item: RubricFeedbackItem }) {
   const ratio = item.points > 0 ? Math.min(100, Math.max(0, (item.score / item.points) * 100)) : 0;
+  const promptIndex = formatScore(ratio / 10);
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
@@ -292,8 +291,8 @@ function RubricScoreRow({ item }: { item: RubricFeedbackItem }) {
           <p className="mt-1 text-xs leading-5 text-slate-500">{item.criteria}</p>
         </div>
         <p className="shrink-0 text-sm font-black text-slate-900">
-          {item.score}
-          <span className="text-slate-400">/{item.points}</span>
+          {promptIndex}
+          <span className="text-slate-400">/10</span>
         </p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
