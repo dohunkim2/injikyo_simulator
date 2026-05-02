@@ -17,7 +17,7 @@ export async function GET() {
   }
 
   try {
-    const sessions = await getAdminSessions(50);
+    const sessions = await getAdminSessions(200);
     return NextResponse.json({ configured: true, sessions });
   } catch (error) {
     console.error("Failed to load admin sessions", error);

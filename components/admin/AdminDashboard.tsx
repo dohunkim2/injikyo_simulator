@@ -63,6 +63,7 @@ export function AdminDashboard() {
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [regeneratingRunId, setRegeneratingRunId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setFeedbackOpen(false);
@@ -170,6 +171,42 @@ export function AdminDashboard() {
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.href = "/admin/login";
+  };
+
+  const handleExportLogs = async () => {
+    if (exporting) return;
+
+    setExporting(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/export", { cache: "no-store" });
+
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? `내보내기 API 오류 (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      const header = response.headers.get("Content-Disposition");
+      const match = header?.match(/filename="([^"]+)"/);
+      anchor.download = match?.[1] ?? `admin-conversation-export-${Date.now()}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage("전체 대화 로그를 JSON 파일로 내보냈습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "내보내기에 실패했습니다.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleClearLogs = async () => {
@@ -358,9 +395,26 @@ export function AdminDashboard() {
         <div className="space-y-4">
             <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <div>
-                <p className="font-semibold text-slate-900">관리자 로그 관리</p>
+                <p className="font-semibold text-slate-900">백업 · 내보내기</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  테스트/발표 전 서버에 저장된 유저, 대화 로그, 랭킹 기록을 전부 초기화합니다.
+                  서버 DB에 있는 전체 세션, 대화 메시지, 인바디(feedback)를 JSON 파일로 받습니다. 초기화 전에 먼저 저장해 두는 것을 권장합니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleExportLogs()}
+                disabled={exporting || loading}
+                className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {exporting ? "내보내는 중..." : "전체 로그 내보내기 (JSON)"}
+              </button>
+            </section>
+
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-rose-200">
+              <div>
+                <p className="font-semibold text-rose-900">데이터 초기화</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  유저·대화·랭킹 관련 서버 기록을 한 번에 삭제합니다. 되돌릴 수 없으니 필요하면 위에서 내보내기를 먼저 하세요.
                 </p>
               </div>
               <button

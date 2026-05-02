@@ -648,7 +648,7 @@ function mapSessionSummary(row: {
   };
 }
 
-export async function getAdminSessions(limit = 50): Promise<AdminSessionSummary[]> {
+export async function getAdminSessions(limit = 200): Promise<AdminSessionSummary[]> {
   await ensureTables();
 
   const result = await sql<{
@@ -774,6 +774,110 @@ export async function getAdminSessionDetail(runId: string): Promise<AdminSession
       messageIndex: message.message_index ?? index,
       affectionChange: message.affection_change,
     })),
+  };
+}
+
+export type AdminConversationExport = {
+  exportedAt: string;
+  lastClearedAt: string | null;
+  sessionCount: number;
+  sessions: AdminSessionDetail[];
+};
+
+export async function getAdminConversationExport(): Promise<AdminConversationExport> {
+  await ensureTables();
+
+  const lastClearedAt = await getLastClearedAt();
+
+  const summaryResult = await sql<{
+    run_id: string;
+    player_id: string;
+    nickname: string;
+    character_id: string;
+    character_name: string;
+    status: string;
+    success: boolean;
+    current_affection: number;
+    final_affection: number;
+    turns_used: number;
+    message_count: number;
+    started_at: string;
+    completed_at: string | null;
+    last_message_at: string;
+    feedback: CharacterFeedback | null;
+  }>`
+    SELECT
+      r.id::text AS run_id,
+      r.player_id,
+      p.nickname,
+      r.character_id,
+      r.character_name,
+      r.status,
+      r.success,
+      r.current_affection,
+      r.final_affection,
+      r.turns_used,
+      COUNT(m.id)::int AS message_count,
+      r.created_at::text AS started_at,
+      r.completed_at::text AS completed_at,
+      r.last_message_at::text AS last_message_at,
+      r.feedback AS feedback
+    FROM conversation_runs r
+    JOIN players p ON p.id = r.player_id
+    LEFT JOIN conversation_messages m ON m.run_id = r.id
+    GROUP BY r.id, p.nickname
+    ORDER BY r.last_message_at DESC
+  `;
+
+  const messagesResult = await sql<{
+    run_id: string;
+    id: string;
+    role: Role;
+    content: string;
+    sent_at: string;
+    message_index: number | null;
+    affection_change: number | null;
+  }>`
+    SELECT
+      run_id::text,
+      id::text,
+      role,
+      content,
+      sent_at::text,
+      message_index,
+      affection_change
+    FROM conversation_messages
+    ORDER BY run_id, COALESCE(message_index, 2147483647), sent_at ASC
+  `;
+
+  const messagesByRun = new Map<string, typeof messagesResult.rows>();
+  for (const row of messagesResult.rows) {
+    const list = messagesByRun.get(row.run_id) ?? [];
+    list.push(row);
+    messagesByRun.set(row.run_id, list);
+  }
+
+  const sessions: AdminSessionDetail[] = summaryResult.rows.map((row) => {
+    const messageRows = messagesByRun.get(row.run_id) ?? [];
+    return {
+      ...mapSessionSummary(row),
+      feedback: row.feedback,
+      messages: messageRows.map((message, index) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        timestamp: new Date(message.sent_at).getTime(),
+        messageIndex: message.message_index ?? index,
+        affectionChange: message.affection_change,
+      })),
+    };
+  });
+
+  return {
+    exportedAt: new Date().toISOString(),
+    lastClearedAt,
+    sessionCount: sessions.length,
+    sessions,
   };
 }
 
