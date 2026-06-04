@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import sharp from "sharp";
 
 import type { AdminConversationExport } from "./db";
@@ -6,11 +8,15 @@ import type { AdminSessionDetail, RubricFeedbackItem } from "./types";
 const RUBRIC_ITEM_MAX_SCORE = 10;
 const SVG_WIDTH = 1200;
 const PADDING = 56;
+const EXPORT_FONT_FAMILY = "InBodyExportKR";
+const EXPORT_FONT_PATH = join(process.cwd(), "public", "fonts", "NotoSansCJKkr-Regular.otf");
 
 type ZipEntry = {
   path: string;
   content: string | Uint8Array;
 };
+
+let cachedFontCss: string | null = null;
 
 export type AdminInbodyImageExport = {
   archive: Uint8Array;
@@ -104,6 +110,7 @@ function renderInbodySvg(session: AdminSessionDetail) {
   const push = (value: string) => parts.push(value);
 
   push(`<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_WIDTH}" viewBox="0 0 ${SVG_WIDTH} {{HEIGHT}}">`);
+  push(`<defs><style>${getExportFontCss()}</style></defs>`);
   push(`<rect width="${SVG_WIDTH}" height="{{HEIGHT}}" rx="36" fill="#f8fafc"/>`);
   push(`<rect x="24" y="24" width="${SVG_WIDTH - 48}" height="{{HEIGHT_MINUS_48}}" rx="32" fill="#ffffff"/>`);
 
@@ -447,6 +454,18 @@ function sanitizePathSegment(value: string) {
 
 function shortId(value: string) {
   return value.length > 10 ? value.slice(0, 8) : value;
+}
+
+function getExportFontCss() {
+  if (!cachedFontCss) {
+    const font = readFileSync(EXPORT_FONT_PATH).toString("base64");
+    cachedFontCss = [
+      `@font-face{font-family:${EXPORT_FONT_FAMILY};src:url(data:font/otf;base64,${font}) format("opentype");font-weight:400;font-style:normal;}`,
+      `text{font-family:${EXPORT_FONT_FAMILY},sans-serif;}`,
+    ].join("");
+  }
+
+  return cachedFontCss;
 }
 
 function escapeXml(value: string) {
