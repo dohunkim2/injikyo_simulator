@@ -455,7 +455,7 @@ export function AdminDashboard() {
                   disabled={exportingInbodyImages || loading}
                   className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {exportingInbodyImages ? "이미지 생성 중..." : "전체 인바디 이미지 내보내기 (ZIP)"}
+                  {exportingInbodyImages ? "이미지 생성 중..." : "전체 인바디 이미지 내보내기 (PNG ZIP)"}
                 </button>
               </div>
             </section>

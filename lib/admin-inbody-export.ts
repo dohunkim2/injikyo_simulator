@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 import type { AdminConversationExport } from "./db";
 import type { AdminSessionDetail, RubricFeedbackItem } from "./types";
 
@@ -16,7 +18,7 @@ export type AdminInbodyImageExport = {
   skippedCount: number;
 };
 
-export function buildAdminInbodyImageZip(data: AdminConversationExport): AdminInbodyImageExport {
+export async function buildAdminInbodyImageZip(data: AdminConversationExport): Promise<AdminInbodyImageExport> {
   const imageEntries: ZipEntry[] = [];
   const manifestRows: string[][] = [
     ["team", "playerId", "nickname", "character", "runId", "grade", "score", "maxScore", "startedAt", "file"],
@@ -30,14 +32,14 @@ export function buildAdminInbodyImageZip(data: AdminConversationExport): AdminIn
     const teamName = session.nickname || session.playerId;
     const folderName = sanitizePathSegment(`${teamName}_${shortId(session.playerId)}`);
     const fileName = sanitizePathSegment(
-      `${session.characterName}_${formatFileDate(session.startedAt)}_${shortId(session.runId)}.svg`,
+      `${session.characterName}_${formatFileDate(session.startedAt)}_${shortId(session.runId)}.png`,
     );
     const path = `inbody-images/${folderName}/${fileName}`;
     const scores = getRubricTotals(session.feedback.rubricScores);
 
     imageEntries.push({
       path,
-      content: renderInbodySvg(session),
+      content: await renderInbodyPng(session),
     });
     manifestRows.push([
       teamName,
@@ -64,7 +66,7 @@ export function buildAdminInbodyImageZip(data: AdminConversationExport): AdminIn
         `이미지 생성 수: ${imageEntries.length}`,
         `인바디 미저장으로 건너뛴 세션 수: ${skippedCount}`,
         "",
-        "파일은 팀/닉네임별 폴더에 SVG 이미지로 저장됩니다.",
+        "파일은 팀/닉네임별 폴더에 PNG 이미지로 저장됩니다.",
       ].join("\n"),
     },
     {
@@ -79,6 +81,11 @@ export function buildAdminInbodyImageZip(data: AdminConversationExport): AdminIn
     imageCount: imageEntries.length,
     skippedCount,
   };
+}
+
+async function renderInbodyPng(session: AdminSessionDetail) {
+  const svg = renderInbodySvg(session);
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 function renderInbodySvg(session: AdminSessionDetail) {

@@ -18,7 +18,7 @@ export async function GET() {
 
   try {
     const data = await getAdminConversationExport();
-    const { archive, imageCount, skippedCount } = buildAdminInbodyImageZip(data);
+    const { archive, imageCount, skippedCount } = await buildAdminInbodyImageZip(data);
     const filename = `admin-inbody-images-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`;
 
     return new NextResponse(archive, {
