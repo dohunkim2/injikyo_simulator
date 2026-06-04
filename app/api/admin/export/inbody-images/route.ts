@@ -20,8 +20,10 @@ export async function GET() {
     const data = await getAdminConversationExport();
     const { archive, imageCount, skippedCount } = await buildAdminInbodyImageZip(data);
     const filename = `admin-inbody-images-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`;
+    const body = new ArrayBuffer(archive.byteLength);
+    new Uint8Array(body).set(archive);
 
-    return new NextResponse(archive, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
