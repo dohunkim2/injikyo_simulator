@@ -64,6 +64,7 @@ export function AdminDashboard() {
   const [regeneratingRunId, setRegeneratingRunId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingInbodyImages, setExportingInbodyImages] = useState(false);
 
   useEffect(() => {
     setFeedbackOpen(false);
@@ -206,6 +207,45 @@ export function AdminDashboard() {
       setMessage(error instanceof Error ? error.message : "내보내기에 실패했습니다.");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportInbodyImages = async () => {
+    if (exportingInbodyImages) return;
+
+    setExportingInbodyImages(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/export/inbody-images", { cache: "no-store" });
+
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? `인바디 이미지 내보내기 API 오류 (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      const header = response.headers.get("Content-Disposition");
+      const match = header?.match(/filename="([^"]+)"/);
+      anchor.download = match?.[1] ?? `admin-inbody-images-${Date.now()}.zip`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+
+      const imageCount = Number(response.headers.get("X-Inbody-Image-Count") ?? 0);
+      const skippedCount = Number(response.headers.get("X-Inbody-Skipped-Count") ?? 0);
+      setMessage(`인바디 이미지 ${imageCount}개를 ZIP으로 내보냈습니다. 미저장 세션 ${skippedCount}건은 건너뛰었습니다.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "인바디 이미지 내보내기에 실패했습니다.");
+    } finally {
+      setExportingInbodyImages(false);
     }
   };
 
@@ -397,17 +437,27 @@ export function AdminDashboard() {
               <div>
                 <p className="font-semibold text-slate-900">백업 · 내보내기</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  서버 DB에 있는 전체 세션, 대화 메시지, 인바디(feedback)를 JSON 파일로 받습니다. 초기화 전에 먼저 저장해 두는 것을 권장합니다.
+                  서버 DB에 있는 전체 로그를 JSON으로 받거나, 팀/유저별 인바디 결과 이미지를 ZIP으로 저장합니다. 초기화 전에 먼저 저장해 두는 것을 권장합니다.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleExportLogs()}
-                disabled={exporting || loading}
-                className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {exporting ? "내보내는 중..." : "전체 로그 내보내기 (JSON)"}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleExportLogs()}
+                  disabled={exporting || loading}
+                  className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {exporting ? "내보내는 중..." : "전체 로그 내보내기 (JSON)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleExportInbodyImages()}
+                  disabled={exportingInbodyImages || loading}
+                  className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {exportingInbodyImages ? "이미지 생성 중..." : "전체 인바디 이미지 내보내기 (ZIP)"}
+                </button>
+              </div>
             </section>
 
             <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-rose-200">
