@@ -1,6 +1,5 @@
-import { readFileSync } from "fs";
-import { join } from "path";
-import sharp from "sharp";
+import { mkdirSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
 
 import type { AdminConversationExport } from "./db";
 import type { AdminSessionDetail, RubricFeedbackItem } from "./types";
@@ -8,15 +7,16 @@ import type { AdminSessionDetail, RubricFeedbackItem } from "./types";
 const RUBRIC_ITEM_MAX_SCORE = 10;
 const SVG_WIDTH = 1200;
 const PADDING = 56;
-const EXPORT_FONT_FAMILY = "InBodyExportKR";
+const EXPORT_FONT_FAMILY = "Noto Sans CJK KR";
 const EXPORT_FONT_PATH = join(process.cwd(), "public", "fonts", "NotoSansCJKkr-Regular.otf");
+const EXPORT_FONTCONFIG_FILE = "/tmp/inbody-fontconfig/fonts.conf";
 
 type ZipEntry = {
   path: string;
   content: string | Uint8Array;
 };
 
-let cachedFontCss: string | null = null;
+let fontConfigReady = false;
 
 export type AdminInbodyImageExport = {
   archive: Uint8Array;
@@ -90,6 +90,8 @@ export async function buildAdminInbodyImageZip(data: AdminConversationExport): P
 }
 
 async function renderInbodyPng(session: AdminSessionDetail) {
+  ensureExportFontConfig();
+  const { default: sharp } = await import("sharp");
   const svg = renderInbodySvg(session);
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
@@ -456,16 +458,39 @@ function shortId(value: string) {
   return value.length > 10 ? value.slice(0, 8) : value;
 }
 
-function getExportFontCss() {
-  if (!cachedFontCss) {
-    const font = readFileSync(EXPORT_FONT_PATH).toString("base64");
-    cachedFontCss = [
-      `@font-face{font-family:${EXPORT_FONT_FAMILY};src:url(data:font/otf;base64,${font}) format("opentype");font-weight:400;font-style:normal;}`,
-      `text{font-family:${EXPORT_FONT_FAMILY},sans-serif;}`,
-    ].join("");
+function ensureExportFontConfig() {
+  if (fontConfigReady) {
+    return;
   }
 
-  return cachedFontCss;
+  const fontsDir = dirname(EXPORT_FONT_PATH);
+  const configDir = dirname(EXPORT_FONTCONFIG_FILE);
+  mkdirSync(configDir, { recursive: true });
+  mkdirSync("/tmp/inbody-fontconfig-cache", { recursive: true });
+
+  writeFileSync(
+    EXPORT_FONTCONFIG_FILE,
+    [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<!DOCTYPE fontconfig SYSTEM "fonts.dtd">`,
+      `<fontconfig>`,
+      `  <dir>${escapeXml(fontsDir)}</dir>`,
+      `  <cachedir>/tmp/inbody-fontconfig-cache</cachedir>`,
+      `  <alias>`,
+      `    <family>sans-serif</family>`,
+      `    <prefer><family>${EXPORT_FONT_FAMILY}</family></prefer>`,
+      `  </alias>`,
+      `</fontconfig>`,
+    ].join("\n"),
+  );
+
+  process.env.FONTCONFIG_FILE = EXPORT_FONTCONFIG_FILE;
+  process.env.FONTCONFIG_PATH = configDir;
+  fontConfigReady = true;
+}
+
+function getExportFontCss() {
+  return `text{font-family:"${EXPORT_FONT_FAMILY}",sans-serif;}`;
 }
 
 function escapeXml(value: string) {
